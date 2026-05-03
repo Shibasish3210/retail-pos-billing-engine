@@ -230,95 +230,82 @@ export default function App() {
     setTimeout(() => setShowOrderSuccess(false), 2000);
   };
 
+  const handleLogin = async () => {
+    try {
+      await loginWithGoogle();
+    } catch (error: any) {
+      console.error("Login Error:", error);
+      if (error.code === 'auth/popup-blocked') {
+        alert("Login popup was blocked! Please allow popups for this site or open it in a full browser tab.");
+      } else {
+        alert(`Login failed: ${error.message || 'Unknown error'}. On mobile, please ensure you're in a regular browser tab (not a Home Screen shortcut).`);
+      }
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#1E293B] font-sans flex flex-col max-w-[1400px] mx-auto overflow-hidden h-screen">
+    <div className="min-h-screen bg-[#FDFDFD] text-[#0F172A] font-sans selection:bg-blue-100 selection:text-blue-900 pb-20 md:pb-0 h-screen flex flex-col overflow-hidden">
       
-      {/* Header - Fixed at Top */}
-      <header className="bg-white border-b-2 border-slate-100 p-4 shrink-0 z-50">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-[900] tracking-tighter text-[#0F172A]">CHAI POINT</h1>
-            <p className="text-[10px] md:text-xs text-slate-500 font-bold uppercase tracking-widest leading-none mt-1">
+      {/* Header */}
+      <header className="bg-white border-b border-slate-100 p-3 md:p-6 shrink-0 z-50">
+        <div className="max-w-[1400px] mx-auto flex justify-between items-center">
+          <div className="flex flex-col">
+            <h1 className="text-xl md:text-3xl font-[1000] tracking-tighter leading-none">CHAI POINT</h1>
+            <p className="text-[8px] md:text-xs text-slate-400 font-bold uppercase tracking-[0.2em] mt-1 hidden sm:block">
               {new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
             </p>
           </div>
-          <div className="flex gap-1 sm:gap-2 items-center">
+          
+          <div className="flex items-center gap-2">
             {user ? (
-              <div className="flex items-center gap-2 mr-1 sm:mr-2 bg-slate-50 px-2 sm:px-3 py-1.5 rounded-xl border border-slate-100">
+              <div className="flex items-center gap-2 bg-slate-50 px-2 md:px-3 py-1.5 rounded-2xl border border-slate-100">
                 <div className="text-right hidden sm:block">
                   <p className="text-[10px] font-black text-slate-800 uppercase leading-none">{user.displayName?.split(' ')[0]}</p>
-                  <p className="text-[8px] font-bold text-slate-400">SYNCED</p>
+                  <p className="text-[8px] font-bold text-emerald-500 tracking-[0.2em]">SYNCED</p>
                 </div>
                 <button 
                   onClick={() => auth.signOut()}
                   className="text-slate-400 hover:text-rose-500 transition-colors p-1"
                   title="Logout"
                 >
-                  <LogOut size={18} />
+                  <LogOut size={16} />
                 </button>
               </div>
             ) : (
               <button 
-                onClick={async () => {
-                  try {
-                    await loginWithGoogle();
-                  } catch (err) {
-                    alert("Login blocked! If you are using a Home Screen shortcut, please open the app in a full browser tab to log in.");
-                  }
-                }}
-                className="flex items-center gap-2 bg-blue-50 text-blue-600 p-3 sm:px-4 sm:py-2 rounded-xl border border-blue-100 font-black text-[10px] uppercase tracking-widest hover:bg-blue-100 transition-all mr-1"
+                onClick={handleLogin}
+                className="flex items-center gap-2 bg-blue-50 text-blue-600 px-3 py-2 md:px-4 md:py-2.5 rounded-2xl border border-blue-100 font-black text-[10px] uppercase tracking-widest hover:bg-blue-100 transition-all"
               >
-                <LogIn size={18} />
-                <span className="hidden sm:inline">Login to Sync</span>
+                <LogIn size={16} />
+                <span className="hidden md:inline">Login</span>
               </button>
             )}
 
-            <button 
-              onClick={() => setView('billing')} 
-              className={`p-3 rounded-xl transition-all ${view === 'billing' ? 'bg-[#0F172A] text-white shadow-lg' : 'bg-slate-50 text-slate-400 border border-slate-200'}`}
-              title="Billing"
-            >
-              <LayoutGrid size={20} className="sm:w-[22px] sm:h-[22px]" />
-            </button>
-            <button 
-              onClick={() => setView('insights')} 
-              className={`p-3 rounded-xl transition-all ${view === 'insights' ? 'bg-[#0F172A] text-white shadow-lg' : 'bg-slate-50 text-slate-400 border border-slate-200'}`}
-              title="Insights"
-            >
-              <BarChart3 size={20} className="sm:w-[22px] sm:h-[22px]" />
-            </button>
-            <button 
-              onClick={() => setView('inventory')} 
-              className={`p-3 rounded-xl transition-all ${view === 'inventory' ? 'bg-[#0F172A] text-white shadow-lg' : 'bg-slate-50 text-slate-400 border border-slate-200'}`}
-              title="Inventory"
-            >
-              <Package size={20} className="sm:w-[22px] sm:h-[22px]" />
-            </button>
-            <button 
-              onClick={() => setView('settings')} 
-              className={`p-3 rounded-xl transition-all ${view === 'settings' ? 'bg-[#0F172A] text-white shadow-lg' : 'bg-slate-50 text-slate-400 border border-slate-200'}`}
-              title="Settings"
-            >
-              <Settings size={20} className="sm:w-[22px] sm:h-[22px]" />
-            </button>
+            {/* Desktop Nav */}
+            <nav className="hidden md:flex items-center gap-2 ml-4">
+              <DesktopNavButton active={view === 'billing'} onClick={() => setView('billing')} icon={<LayoutGrid size={20} />} label="POS" />
+              <DesktopNavButton active={view === 'insights'} onClick={() => setView('insights')} icon={<BarChart3 size={20} />} label="Stats" />
+              <DesktopNavButton active={view === 'inventory'} onClick={() => setView('inventory')} icon={<Package size={20} />} label="Stock" />
+              <DesktopNavButton active={view === 'settings'} onClick={() => setView('settings')} icon={<Settings size={20} />} label="Config" />
+            </nav>
           </div>
         </div>
       </header>
 
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
         {/* Main Workspace */}
-        <main className="flex-1 overflow-y-auto bg-[#F8FAFC]">
+        <main className="flex-1 overflow-y-auto bg-[#FDFDFD]">
           <AnimatePresence mode="wait">
             {view === 'billing' && (
               <motion.div 
                 key="billing"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="p-4 md:p-8 flex flex-col gap-6"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="p-4 md:p-8 flex flex-col gap-8"
               >
                 {/* Bills Management */}
-                <div className="flex gap-4 overflow-x-auto pb-6 scrollbar-hide px-1">
+                <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
                   {bills.map(bill => {
                     const billTotal = bill.items.reduce((acc, item) => acc + calculateItemTotal(item), 0);
                     return (
@@ -328,68 +315,66 @@ export default function App() {
                           setActiveBillId(bill.id);
                           if (bill.items.length > 0) setIsCartExpanded(true);
                         }}
-                        className={`relative p-5 rounded-[28px] border-4 transition-all min-w-[150px] md:min-w-[180px] text-left shrink-0 ${
+                        className={`relative p-6 rounded-[32px] border-4 transition-all min-w-[150px] md:min-w-[180px] text-left shrink-0 ${
                           activeBillId === bill.id 
-                            ? 'bg-[#0F172A] border-[#0F172A] text-white shadow-2xl shadow-slate-300 scale-105 z-10' 
-                            : 'bg-white border-slate-50 text-slate-400 hover:border-slate-200 hover:bg-slate-50'
+                            ? 'bg-[#0F172A] border-[#0F172A] text-white shadow-2xl scale-105 z-10' 
+                            : 'bg-white border-slate-50 text-slate-400 hover:border-slate-200'
                         }`}
                       >
                         <div className="flex justify-between items-start mb-2">
-                          <span className={`text-[10px] font-black uppercase tracking-widest ${activeBillId === bill.id ? 'text-slate-400' : 'text-slate-300'}`}>
+                          <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${activeBillId === bill.id ? 'text-slate-400' : 'text-slate-300'}`}>
                             {bill.name}
                           </span>
-                          <div 
-                            onClick={(e) => deleteBill(bill.id, e)} 
-                            className={`p-1 rounded-lg transition-colors ${activeBillId === bill.id ? 'hover:bg-white/10 text-white/40' : 'hover:bg-slate-100 text-slate-300'}`}
-                          >
-                              <X size={14} />
-                          </div>
+                          {bills.length > 1 && (
+                            <div 
+                              onClick={(e) => deleteBill(bill.id, e)} 
+                              className={`p-1 rounded-lg transition-colors ${activeBillId === bill.id ? 'hover:bg-white/10 text-white/40' : 'hover:bg-slate-100 text-slate-300'}`}
+                            >
+                                <X size={14} />
+                            </div>
+                          )}
                         </div>
-                        <div className="text-2xl font-black">₹{billTotal}</div>
-                        {bill.items.length > 0 && activeBillId !== bill.id && (
-                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full border-2 border-white" />
-                        )}
+                        <div className="text-3xl font-[1000] tracking-tighter">₹{billTotal}</div>
                       </button>
                     );
                   })}
                   <button 
                     onClick={addNewBill}
-                    className="p-4 md:p-5 rounded-[24px] border-4 border-dashed border-slate-100 text-slate-300 hover:border-slate-200 hover:text-slate-400 transition-all flex flex-col items-center justify-center min-w-[140px] md:min-w-[160px] shrink-0 bg-slate-50/30"
+                    className="p-6 rounded-[32px] border-4 border-dashed border-slate-100 text-slate-300 hover:border-blue-400 hover:text-blue-500 transition-all flex flex-col items-center justify-center min-w-[120px] shrink-0"
                   >
                     <Plus size={24} />
-                    <span className="text-[10px] font-black uppercase mt-1 tracking-widest">New Bill</span>
+                    <span className="text-[10px] font-black uppercase mt-1 tracking-widest">Add Bill</span>
                   </button>
                 </div>
 
                 {/* Items Grouped by Category */}
-                <div className="flex flex-col gap-10 pb-48 md:pb-12">
+                <div className="flex flex-col gap-12 pb-48 md:pb-12">
                   {(Object.entries(allItemsByGroup) as [string, Item[]][]).map(([category, items]) => (
-                    <div key={category} className="space-y-4">
+                    <div key={category} className="space-y-6">
                       <div className="flex items-center gap-4">
-                        <div className={`w-3 h-10 rounded-full ${CATEGORY_COLORS[category]?.split(' ')[0] || 'bg-slate-500'}`} />
-                        <h3 className="text-2xl font-black text-slate-400 uppercase tracking-[0.2em]">{category}</h3>
+                        <div className={`w-3 h-8 rounded-full ${CATEGORY_COLORS[category]?.split(' ')[0] || 'bg-slate-500'}`} />
+                        <h3 className="text-sm font-[1000] text-slate-400 uppercase tracking-[0.3em]">{category}</h3>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                         {items.map((item) => (
                           <button
                             key={item.id}
                             onClick={() => addToCart(item)}
-                            className={`${item.color} min-h-[140px] md:min-h-[160px] p-6 rounded-[28px] shadow-xl shadow-slate-200/50 active:scale-95 active:opacity-70 transition-all flex flex-col items-center justify-between text-center relative overflow-hidden group border-2 border-slate-200/50 hover:border-slate-300`}
+                            className={`${item.color} p-6 md:p-8 rounded-[36px] shadow-sm hover:shadow-xl active:scale-[0.98] transition-all flex flex-col items-center justify-between text-center relative overflow-hidden group border-2 border-transparent hover:border-white/20`}
                           >
-                            {/* Larger, decorative icon in background to prevent overlap */}
                             <div className="absolute inset-0 flex items-center justify-center opacity-[0.08] group-hover:scale-110 transition-transform pointer-events-none">
-                              <IconComponent name={item.iconName} size={110} />
+                              <IconComponent name={item.iconName} size={120} />
                             </div>
                             
-                            <div className="flex-1 flex flex-col items-center justify-center relative z-10 w-full">
-                               <span className="text-2xl md:text-3xl font-[1000] uppercase tracking-tighter leading-[1] mb-1 drop-shadow-sm break-words px-2">
+                            <div className="relative z-10 w-full mb-6">
+                               <span className="text-2xl md:text-3xl font-[1000] uppercase tracking-tighter leading-tight drop-shadow-sm">
                                 {item.name.split(' ₹')[0]}
                               </span>
                             </div>
                             
-                            <div className="bg-white/50 backdrop-blur-sm px-6 py-2.5 rounded-2xl w-full flex justify-between items-center relative z-10 border-t border-white/40">
-                              <span className="text-[10px] font-black uppercase tracking-[0.1em] opacity-60">Price</span>
-                              <span className="text-xl md:text-2xl font-black">₹{item.price}</span>
+                            <div className="bg-white/40 backdrop-blur-md px-6 py-2.5 rounded-2xl w-full flex justify-between items-center relative z-10 border border-white/40">
+                              <span className="text-[10px] font-black uppercase tracking-widest opacity-60">₹{item.price}</span>
+                              <Plus size={16} className="opacity-60" />
                             </div>
                           </button>
                         ))}
@@ -528,19 +513,60 @@ export default function App() {
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] bg-white shadow-2xl rounded-2xl p-4 flex items-center gap-4 border border-emerald-100"
+            className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] bg-white shadow-2xl rounded-3xl p-6 flex items-center gap-5 border border-emerald-100"
           >
-            <div className="bg-emerald-100 text-emerald-600 p-2 rounded-full">
-              <CheckCircle2 size={24} />
+            <div className="bg-emerald-100 text-emerald-600 p-3 rounded-2xl">
+              <CheckCircle2 size={28} />
             </div>
             <div>
-              <p className="font-bold">Order Saved!</p>
-              <p className="text-sm text-slate-500">Cart cleared successfully.</p>
+              <p className="font-[1000] text-lg tracking-tight">Order Finalized</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Inventory Updated</p>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Mobile Navigation Bar */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex items-center justify-around p-2 pb-6 z-50">
+        <MobileNavButton active={view === 'billing'} onClick={() => setView('billing')} icon={<LayoutGrid size={24} />} label="POS" />
+        <MobileNavButton active={view === 'insights'} onClick={() => setView('insights')} icon={<BarChart3 size={24} />} label="Stats" />
+        <MobileNavButton active={view === 'inventory'} onClick={() => setView('inventory')} icon={<Package size={24} />} label="Stock" />
+        <MobileNavButton active={view === 'settings'} onClick={() => setView('settings')} icon={<Settings size={24} />} label="Config" />
+      </nav>
     </div>
+  );
+}
+
+function DesktopNavButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+  return (
+    <button 
+      onClick={onClick}
+      className={`flex items-center gap-2 px-4 py-2 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
+        active 
+          ? 'bg-[#0F172A] text-white shadow-lg' 
+          : 'text-slate-400 hover:bg-slate-50 border border-transparent'
+      }`}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function MobileNavButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+  return (
+    <button 
+      onClick={onClick}
+      className={`flex flex-col items-center justify-center h-12 w-16 rounded-2xl transition-all ${
+        active 
+          ? 'text-[#0F172A] scale-110' 
+          : 'text-slate-300'
+      }`}
+    >
+      {icon}
+      <span className="text-[8px] font-black uppercase mt-1 tracking-widest">{label}</span>
+      {active && <motion.div layoutId="activeTab" className="absolute -bottom-1 w-1 h-1 bg-[#0F172A] rounded-full" />}
+    </button>
   );
 }
 
