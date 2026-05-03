@@ -4,7 +4,7 @@ import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+export const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
@@ -68,10 +68,16 @@ export async function loginWithGoogle() {
 async function testConnection() {
   try {
     // Attempt to read a dummy doc to verify connection
+    // We cast to any for config to avoid TS errors on dynamic keys
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error: any) {
-    if (error.message?.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
+    // If it's a permission error, it means we ARE connected but rules blocked us (expected)
+    if (error.code === 'permission-denied') {
+      console.log("Firebase Connected (Permissions restricted)");
+      return;
+    }
+    if (error.message?.includes('the client is offline') || error.code === 'unavailable') {
+      console.error("Firebase connection failed. Please check network or configuration.");
     }
   }
 }
