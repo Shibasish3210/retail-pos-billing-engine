@@ -237,8 +237,10 @@ export default function App() {
       console.error("Login Error:", error);
       if (error.code === 'auth/popup-blocked') {
         alert("Login popup was blocked! Please allow popups for this site or open it in a full browser tab.");
+      } else if (error.code === 'auth/unauthorized-domain') {
+        alert("Domain Not Authorized: Please add this URL to 'Authorized Domains' in your Firebase console (Authentication > Settings).");
       } else {
-        alert(`Login failed: ${error.message || 'Unknown error'}. On mobile, please ensure you're in a regular browser tab (not a Home Screen shortcut).`);
+        alert(`Login failed: ${error.message || 'Unknown error'}. On mobile, please ensure you're in a regular browser tab (not a Home Screen shortcut) and have added this domain to Firebase authorized domains.`);
       }
     }
   };
@@ -479,7 +481,7 @@ export default function App() {
             )}
           </div>
 
-          <div className={`p-6 mt-auto border-t-[6px] border-double border-slate-100 bg-white shadow-[0_-20px_50px_rgba(0,0,0,0.05)] shrink-0 ${!isCartExpanded && 'hidden md:block'}`}>
+          <div className={`p-6 md:p-6 pb-28 md:pb-6 mt-auto border-t-[6px] border-double border-slate-100 bg-white shadow-[0_-20px_50px_rgba(0,0,0,0.05)] shrink-0 ${!isCartExpanded && 'hidden md:block'}`}>
             <div className="flex justify-between items-center mb-6">
               <span className="text-2xl font-black text-slate-400 uppercase tracking-widest">Total</span>
               <span className="text-5xl font-black text-[#0F172A] tracking-tighter">₹{cartTotal}</span>
