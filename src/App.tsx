@@ -262,7 +262,7 @@ export default function App() {
             {user ? (
               <div className="flex items-center gap-2 bg-slate-50 px-2 md:px-3 py-1.5 rounded-2xl border border-slate-100">
                 <div className="text-right hidden sm:block">
-                  <p className="text-[10px] font-black text-slate-800 uppercase leading-none">{user.displayName?.split(' ')[0]}</p>
+                  <p className="text-[20px] font-black text-slate-800 uppercase leading-none">{user.displayName?.split(' ')[0]}</p>
                   <p className="text-[8px] font-bold text-emerald-500 tracking-[0.2em]">SYNCED</p>
                 </div>
                 <button 
@@ -307,7 +307,7 @@ export default function App() {
                 className="p-4 md:p-8 flex flex-col gap-8"
               >
                 {/* Bills Management */}
-                <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                <div className="flex gap-6 overflow-x-auto py-6 scrollbar-hide px-4 md:px-8 -mx-4 md:-mx-8">
                   {bills.map(bill => {
                     const billTotal = bill.items.reduce((acc, item) => acc + calculateItemTotal(item), 0);
                     return (
@@ -315,42 +315,41 @@ export default function App() {
                         key={bill.id}
                         onClick={() => {
                           setActiveBillId(bill.id);
-                          if (bill.items.length > 0) setIsCartExpanded(true);
                         }}
-                        className={`relative p-6 rounded-[32px] border-4 transition-all min-w-[150px] md:min-w-[180px] text-left shrink-0 ${
+                        className={`relative p-8 rounded-[40px] border-4 transition-all min-w-[180px] md:min-w-[220px] text-left shrink-0 flex flex-col justify-between h-[160px] ${
                           activeBillId === bill.id 
                             ? 'bg-[#0F172A] border-[#0F172A] text-white shadow-2xl scale-105 z-10' 
-                            : 'bg-white border-slate-50 text-slate-400 hover:border-slate-200'
+                            : 'bg-white border-slate-50 text-slate-300 hover:border-slate-100'
                         }`}
                       >
-                        <div className="flex justify-between items-start mb-2">
-                          <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${activeBillId === bill.id ? 'text-slate-400' : 'text-slate-300'}`}>
+                        <div className="flex justify-between items-start">
+                          <span className={`text-[12px] font-black uppercase tracking-[0.3em] ${activeBillId === bill.id ? 'text-slate-500' : 'text-slate-300'}`}>
                             {bill.name}
                           </span>
                           {bills.length > 1 && (
                             <div 
                               onClick={(e) => deleteBill(bill.id, e)} 
-                              className={`p-1 rounded-lg transition-colors ${activeBillId === bill.id ? 'hover:bg-white/10 text-white/40' : 'hover:bg-slate-100 text-slate-300'}`}
+                              className={`p-2 rounded-xl transition-colors ${activeBillId === bill.id ? 'hover:bg-white/10 text-white/20' : 'hover:bg-slate-100 text-slate-200'}`}
                             >
-                                <X size={14} />
+                                <X size={16} />
                             </div>
                           )}
                         </div>
-                        <div className="text-3xl font-[1000] tracking-tighter">₹{billTotal}</div>
+                        <div className="text-5xl font-[1000] tracking-tighter">₹{billTotal}</div>
                       </button>
                     );
                   })}
                   <button 
                     onClick={addNewBill}
-                    className="p-6 rounded-[32px] border-4 border-dashed border-slate-100 text-slate-300 hover:border-blue-400 hover:text-blue-500 transition-all flex flex-col items-center justify-center min-w-[120px] shrink-0"
+                    className="p-6 rounded-3xl border-2 border-dashed border-slate-200 text-slate-300 hover:border-blue-400 hover:text-blue-500 transition-all flex flex-col items-center justify-center min-w-[120px] shrink-0 bg-slate-50/50"
                   >
                     <Plus size={24} />
-                    <span className="text-[10px] font-black uppercase mt-1 tracking-widest">Add Bill</span>
+                    <span className="text-[20px] font-black uppercase mt-1 tracking-widest">Add Bill</span>
                   </button>
                 </div>
 
                 {/* Items Grouped by Category */}
-                <div className="flex flex-col gap-12 pb-48 md:pb-12">
+                <div className="flex flex-col gap-12 pb-48 md:pb-12 px-4 md:px-8">
                   {(Object.entries(allItemsByGroup) as [string, Item[]][]).map(([category, items]) => (
                     <div key={category} className="space-y-6">
                       <div className="flex items-center gap-4">
@@ -362,7 +361,7 @@ export default function App() {
                           <button
                             key={item.id}
                             onClick={() => addToCart(item)}
-                            className={`${item.color} p-6 md:p-8 rounded-[36px] shadow-sm hover:shadow-xl active:scale-[0.98] transition-all flex flex-col items-center justify-between text-center relative overflow-hidden group border-2 border-transparent hover:border-white/20`}
+                            className={`${item.color} p-6 md:p-8 rounded-3xl shadow-sm hover:shadow-xl active:scale-[0.98] transition-all flex flex-col items-center justify-between text-center relative overflow-hidden group border-2 border-transparent hover:border-white/20`}
                           >
                             <div className="absolute inset-0 flex items-center justify-center opacity-[0.08] group-hover:scale-110 transition-transform pointer-events-none">
                               <IconComponent name={item.iconName} size={120} />
@@ -375,7 +374,7 @@ export default function App() {
                             </div>
                             
                             <div className="bg-white/40 backdrop-blur-md px-6 py-2.5 rounded-2xl w-full flex justify-between items-center relative z-10 border border-white/40">
-                              <span className="text-[10px] font-black uppercase tracking-widest opacity-60">₹{item.price}</span>
+                              <span className="text-[20px] font-black uppercase tracking-widest opacity-60">₹{item.price}</span>
                               <Plus size={16} className="opacity-60" />
                             </div>
                           </button>
@@ -412,68 +411,96 @@ export default function App() {
 
         {/* Sidebar (Cart) - Desktop fixed / Mobile Overlay or Bottom Drawer */}
         <aside className={`
-          fixed bottom-0 left-0 right-0 z-40 bg-white border-t-4 border-slate-200 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]
-          md:relative md:w-[380px] md:border-t-0 md:border-l-4 md:shadow-none
-          flex flex-col transition-all duration-300
-          ${view !== 'billing' ? 'translate-y-full md:translate-y-0' : 'translate-y-0'}
-          ${isCartExpanded ? 'h-[85%] md:h-full' : 'h-[72px] md:h-full'}
+          fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-[0_-15px_40px_rgba(0,0,0,0.15)]
+          md:relative md:w-[400px] md:border-t-0 md:border-l border-slate-100 md:shadow-none
+          flex flex-col transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) z-[999]
+          ${view !== 'billing' || cart.length === 0 ? 'translate-y-full md:translate-y-0' : 'translate-y-0'}
+          ${isCartExpanded ? 'h-[85vh] md:h-full' : 'h-[84px] md:h-full'}
         `}>
           {/* Mobile Header / Expand Toggle */}
           <div 
             onClick={() => setIsCartExpanded(!isCartExpanded)}
-            className="md:hidden flex items-center justify-between p-4 bg-[#0F172A] text-white cursor-pointer"
+            className="md:hidden flex items-center justify-between px-6 py-5 bg-[#0F172A] text-white cursor-pointer  shadow-[0_-20px_50px_rgba(0,0,0,0.3)] shrink-0 z-50 sticky top-0 transition-all active:scale-[0.99]"
           >
-            <div className="flex items-center gap-3">
-              <div className="bg-blue-500 p-1.5 rounded-lg">
-                <ShoppingCart size={20} />
-              </div>
-              <p className="font-black text-lg">Bill: {cart.length} Items</p>
-            </div>
             <div className="flex items-center gap-4">
-              <span className="text-2xl font-black">₹{cartTotal}</span>
-              {isCartExpanded ? <ChevronDown size={24} /> : <ChevronUp size={24} />}
+              <div className="bg-blue-600 p-2.5 rounded-2xl shadow-lg shadow-blue-900/40">
+                <ShoppingCart size={22} />
+              </div>
+              <div className="flex flex-col">
+                <p className="font-bold text-[18px] leading-tight tracking-tight">Current Bill</p>
+                <p className="text-[20px] font-black text-slate-500 uppercase tracking-widest mt-0.5">
+                  {cart.length} {cart.length === 1 ? 'ITEM' : 'ITEMS'} READY
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-5">
+              <div className="text-right">
+                <p className="text-2xl font-[1000] tracking-tighter">₹{cartTotal}</p>
+              </div>
+              <div className={`transition-transform duration-300 ${isCartExpanded ? 'rotate-180' : ''}`}>
+                <ChevronDown size={28} />
+              </div>
             </div>
           </div>
 
-          <div className={`p-5 border-b-2 border-slate-100 flex justify-between items-center shrink-0 ${!isCartExpanded && 'hidden md:flex'}`}>
-            <div className="flex items-center gap-3">
-              <div className="bg-blue-100 text-blue-600 p-2 rounded-xl">
+          <div className={`p-6 border-b border-slate-100 flex justify-between items-center shrink-0 ${!isCartExpanded && 'hidden md:flex'}`}>
+            <div className="flex items-center gap-4">
+              <div className="bg-blue-600 text-white p-2.5 rounded-2xl shadow-lg shadow-blue-100">
                 <ShoppingCart size={24} />
               </div>
-              <h2 className="text-xl md:text-2xl font-[900] tracking-tighter text-[#0F172A]">CURRENT BILL</h2>
+              <div>
+                <h2 className="text-2xl font-[1000] tracking-tighter text-[#0F172A] leading-none mb-1">CURRENT BILL</h2>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">{cart.length} LINE ITEMS</p>
+              </div>
             </div>
             {cart.length > 0 && (
               <button 
-                onClick={undoLastItem}
-                className="flex items-center gap-2 text-slate-400 font-black text-xs hover:text-rose-500 transition-colors uppercase tracking-widest"
+                onClick={clearCart}
+                className="flex items-center gap-2 text-slate-300 font-extrabold text-[10px] hover:text-rose-500 transition-colors uppercase tracking-widest bg-slate-50 px-3 py-2 rounded-xl border border-slate-100"
               >
-                <Trash2 size={18} />
-                Undo
+                <Trash2 size={16} />
+                UNDO
               </button>
             )}
           </div>
 
-          <div className={`flex-1 overflow-y-auto p-5 space-y-4 ${!isCartExpanded && 'hidden md:block'}`}>
+          <div className={`flex-1 overflow-y-auto p-6 space-y-4 ${!isCartExpanded && 'hidden md:block'}`}>
             {cart.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-4 py-8">
-                <ShoppingCart size={64} strokeWidth={1} />
-                <p className="font-black text-xs uppercase tracking-[0.2em]">Select items to bill</p>
+              <div className="h-full flex flex-col items-center justify-center text-slate-200 space-y-4 py-20">
+                <ShoppingCart size={72} strokeWidth={1} />
+                <p className="font-black text-xs uppercase tracking-[0.3em]">No items selected</p>
               </div>
             ) : (
               cart.map((item) => (
-                <div key={item.id} className="flex items-center justify-between group bg-slate-50 p-4 rounded-2xl border-2 border-transparent hover:border-slate-100 transition-all">
-                  <div className="flex items-center gap-4">
-                    <span className="bg-[#0F172A] text-white px-3 py-1.5 rounded-lg font-black text-lg min-w-[40px] text-center">{item.quantity}</span>
+                <div key={item.id} className="flex items-center justify-between bg-white p-4 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all group">
+                  <div className="flex items-center gap-5 flex-1">
+                    <div className="bg-[#0F172A] text-white w-12 h-12 rounded-2xl flex items-center justify-center font-[1000] text-xl shadow-lg shadow-slate-200">
+                      {item.quantity}
+                    </div>
                     <div>
-                      <p className="font-extrabold text-lg text-[#0F172A] leading-none mb-1">{item.name}</p>
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Rate: ₹{item.price}</p>
+                      <p className="font-[1000] text-lg text-[#0F172A] leading-tight mb-0.5">{item.name}</p>
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Rate: ₹{item.price}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className="font-black text-xl text-[#0F172A]">₹{calculateItemTotal(item)}</span>
-                    <div className="hidden group-hover:flex gap-1">
-                      <button onClick={() => removeFromCart(item.id)} className="p-2 bg-white rounded-lg border border-slate-200 text-slate-400"><Minus size={16}/></button>
-                      <button onClick={() => addToCart(item)} className="p-2 bg-white rounded-lg border border-slate-200 text-slate-400"><Plus size={16}/></button>
+                  
+                  <div className="flex items-center gap-6">
+                    <div className="text-right">
+                      <p className="font-[1000] text-2xl text-[#0F172A] tracking-tighter">₹{calculateItemTotal(item)}</p>
+                    </div>
+                    
+                    <div className="flex items-center gap-1 bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
+                      <button 
+                         onClick={() => removeFromCart(item.id)}
+                         className="w-9 h-9 flex items-center justify-center rounded-xl bg-white shadow-sm border border-slate-100 active:scale-95 transition-all text-slate-500"
+                      >
+                        <Minus size={18} />
+                      </button>
+                      <button 
+                        onClick={() => addToCart(item)}
+                        className="w-9 h-9 flex items-center justify-center rounded-xl bg-white shadow-sm border border-slate-100 active:scale-95 transition-all text-slate-500"
+                      >
+                        <Plus size={18} />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -481,21 +508,21 @@ export default function App() {
             )}
           </div>
 
-          <div className={`p-6 md:p-6 pb-28 md:pb-6 mt-auto border-t-[6px] border-double border-slate-100 bg-white shadow-[0_-20px_50px_rgba(0,0,0,0.05)] shrink-0 ${!isCartExpanded && 'hidden md:block'}`}>
-            <div className="flex justify-between items-center mb-6">
-              <span className="text-2xl font-black text-slate-400 uppercase tracking-widest">Total</span>
-              <span className="text-5xl font-black text-[#0F172A] tracking-tighter">₹{cartTotal}</span>
+          <div className={`h-[176px] p-6 pb-32 md:pb-8 mt-auto border-t border-slate-100 bg-white shrink-0 ${!isCartExpanded && 'hidden md:block'}`}>
+            <div className="flex justify-between items-center mb-4">
+              <span className="text-base font-black text-slate-300 uppercase tracking-[0.2em]">Total</span>
+              <span className="text-4xl md:text-5xl font-black text-[#0F172A] tracking-tighter">₹{cartTotal}</span>
             </div>
             <button
               disabled={cart.length === 0}
               onClick={handleCompleteOrder}
-              className={`w-full py-6 md:py-8 rounded-[24px] font-black text-2xl transition-all shadow-2xl relative overflow-hidden ${
+              className={`w-full py-4 md:py-6 rounded-2xl font-black text-lg transition-all shadow-xl relative overflow-hidden uppercase tracking-widest ${
                 cart.length > 0 
-                  ? 'bg-[#2563EB] text-white shadow-blue-200 active:scale-95' 
-                  : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                  ? 'bg-blue-600 text-white shadow-blue-100 active:scale-[0.98]' 
+                  : 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none'
               }`}
             >
-              COMPLETE ORDER
+              Complete Order
             </button>
           </div>
         </aside>
@@ -696,7 +723,7 @@ function InsightsView() {
             ) : (
               <div className="py-12 flex flex-col items-center justify-center text-slate-300 gap-4">
                 <LayoutGrid size={48} strokeWidth={1} />
-                <p className="text-[10px] font-black uppercase tracking-widest">No Sales Data for {activeSummary.date}</p>
+                <p className="text-[20px] font-black uppercase tracking-widest">No Sales Data for {activeSummary.date}</p>
               </div>
             )}
           </div>
@@ -733,7 +760,7 @@ function InsightsView() {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <tr className="text-[20px] font-black text-slate-400 uppercase tracking-widest">
                   <th className="pb-4 pr-4 border-b border-slate-50">Date</th>
                   <th className="pb-4 pr-4 border-b border-slate-50">Sales</th>
                   <th className="pb-4 pr-4 border-b border-slate-50">Orders</th>
@@ -805,11 +832,11 @@ function InventoryView({ onUpdate }: { onUpdate: () => void }) {
             </div>
             
             <p className="font-black text-xl text-[#0F172A] tracking-tight leading-none mb-1">{item.name}</p>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">{item.category}</p>
+            <p className="text-[20px] font-black text-slate-400 uppercase tracking-widest mb-6">{item.category}</p>
             
             <div className="flex items-end justify-between">
               <div>
-                <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-none mb-2">Current Stock</p>
+                <p className="text-[20px] font-black text-slate-300 uppercase tracking-widest leading-none mb-2">Current Stock</p>
                 <p className={`text-4xl font-[1000] tracking-tighter ${item.useStock ? (item.stock && item.stock < 10 ? 'text-rose-600' : 'text-[#0F172A]') : 'text-slate-300'}`}>
                   {item.useStock ? item.stock : '--'}
                 </p>
@@ -906,7 +933,7 @@ function SettingsView({ onAdd, onPriceUpdate }: { onAdd: () => void; onPriceUpda
             </h3>
             <form onSubmit={handleAddItem} className="space-y-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Name</label>
+                <label className="text-[20px] font-black text-slate-400 uppercase tracking-widest ml-1">Name</label>
                 <input 
                   type="text" 
                   value={name}
@@ -917,7 +944,7 @@ function SettingsView({ onAdd, onPriceUpdate }: { onAdd: () => void; onPriceUpda
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Price (₹)</label>
+                  <label className="text-[20px] font-black text-slate-400 uppercase tracking-widest ml-1">Price (₹)</label>
                   <input 
                     type="number" 
                     value={price}
@@ -927,7 +954,7 @@ function SettingsView({ onAdd, onPriceUpdate }: { onAdd: () => void; onPriceUpda
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Category</label>
+                  <label className="text-[20px] font-black text-slate-400 uppercase tracking-widest ml-1">Category</label>
                   <select 
                     value={category}
                     onChange={(e) => setCategory(e.target.value as any)}
