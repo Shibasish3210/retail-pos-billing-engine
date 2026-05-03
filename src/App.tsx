@@ -242,16 +242,16 @@ export default function App() {
               {new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-1 sm:gap-2 items-center">
             {user ? (
-              <div className="flex items-center gap-3 mr-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+              <div className="flex items-center gap-2 mr-1 sm:mr-2 bg-slate-50 px-2 sm:px-3 py-1.5 rounded-xl border border-slate-100">
                 <div className="text-right hidden sm:block">
                   <p className="text-[10px] font-black text-slate-800 uppercase leading-none">{user.displayName?.split(' ')[0]}</p>
                   <p className="text-[8px] font-bold text-slate-400">SYNCED</p>
                 </div>
                 <button 
                   onClick={() => auth.signOut()}
-                  className="text-slate-400 hover:text-rose-500 transition-colors"
+                  className="text-slate-400 hover:text-rose-500 transition-colors p-1"
                   title="Logout"
                 >
                   <LogOut size={18} />
@@ -259,11 +259,17 @@ export default function App() {
               </div>
             ) : (
               <button 
-                onClick={loginWithGoogle}
-                className="flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-xl border border-blue-100 font-black text-[10px] uppercase tracking-widest hover:bg-blue-100 transition-all mr-2"
+                onClick={async () => {
+                  try {
+                    await loginWithGoogle();
+                  } catch (err) {
+                    alert("Login blocked! If you are using a Home Screen shortcut, please open the app in a full browser tab to log in.");
+                  }
+                }}
+                className="flex items-center gap-2 bg-blue-50 text-blue-600 p-3 sm:px-4 sm:py-2 rounded-xl border border-blue-100 font-black text-[10px] uppercase tracking-widest hover:bg-blue-100 transition-all mr-1"
               >
-                <LogIn size={16} />
-                Login to Sync
+                <LogIn size={18} />
+                <span className="hidden sm:inline">Login to Sync</span>
               </button>
             )}
 
@@ -272,28 +278,28 @@ export default function App() {
               className={`p-3 rounded-xl transition-all ${view === 'billing' ? 'bg-[#0F172A] text-white shadow-lg' : 'bg-slate-50 text-slate-400 border border-slate-200'}`}
               title="Billing"
             >
-              <LayoutGrid size={22} />
+              <LayoutGrid size={20} className="sm:w-[22px] sm:h-[22px]" />
             </button>
             <button 
               onClick={() => setView('insights')} 
               className={`p-3 rounded-xl transition-all ${view === 'insights' ? 'bg-[#0F172A] text-white shadow-lg' : 'bg-slate-50 text-slate-400 border border-slate-200'}`}
               title="Insights"
             >
-              <BarChart3 size={22} />
+              <BarChart3 size={20} className="sm:w-[22px] sm:h-[22px]" />
             </button>
             <button 
               onClick={() => setView('inventory')} 
               className={`p-3 rounded-xl transition-all ${view === 'inventory' ? 'bg-[#0F172A] text-white shadow-lg' : 'bg-slate-50 text-slate-400 border border-slate-200'}`}
               title="Inventory"
             >
-              <Package size={22} />
+              <Package size={20} className="sm:w-[22px] sm:h-[22px]" />
             </button>
             <button 
               onClick={() => setView('settings')} 
               className={`p-3 rounded-xl transition-all ${view === 'settings' ? 'bg-[#0F172A] text-white shadow-lg' : 'bg-slate-50 text-slate-400 border border-slate-200'}`}
               title="Settings"
             >
-              <Settings size={22} />
+              <Settings size={20} className="sm:w-[22px] sm:h-[22px]" />
             </button>
           </div>
         </div>
@@ -312,7 +318,7 @@ export default function App() {
                 className="p-4 md:p-8 flex flex-col gap-6"
               >
                 {/* Bills Management */}
-                <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
+                <div className="flex gap-4 overflow-x-auto pb-6 scrollbar-hide px-1">
                   {bills.map(bill => {
                     const billTotal = bill.items.reduce((acc, item) => acc + calculateItemTotal(item), 0);
                     return (
@@ -322,9 +328,9 @@ export default function App() {
                           setActiveBillId(bill.id);
                           if (bill.items.length > 0) setIsCartExpanded(true);
                         }}
-                        className={`relative p-4 md:p-5 rounded-[24px] border-4 transition-all min-w-[140px] md:min-w-[160px] text-left shrink-0 ${
+                        className={`relative p-5 rounded-[28px] border-4 transition-all min-w-[150px] md:min-w-[180px] text-left shrink-0 ${
                           activeBillId === bill.id 
-                            ? 'bg-[#0F172A] border-[#0F172A] text-white shadow-xl shadow-slate-200' 
+                            ? 'bg-[#0F172A] border-[#0F172A] text-white shadow-2xl shadow-slate-300 scale-105 z-10' 
                             : 'bg-white border-slate-50 text-slate-400 hover:border-slate-200 hover:bg-slate-50'
                         }`}
                       >
