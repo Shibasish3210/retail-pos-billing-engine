@@ -1,0 +1,103 @@
+{
+  "entities": {
+    "UserItem": {
+      "title": "UserItem",
+      "description": "Custom menu items added by the user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "category": { "type": "string" },
+        "color": { "type": "string" },
+        "iconName": { "type": "string" }
+      },
+      "required": ["id", "name", "price", "category"]
+    },
+    "PriceOverride": {
+      "title": "PriceOverride",
+      "description": "Manual price overrides for default items",
+      "type": "object",
+      "properties": {
+        "itemId": { "type": "string" },
+        "price": { "type": "number" }
+      },
+      "required": ["price"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Completed transaction details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "total": { "type": "number" },
+        "timestamp": { "type": "number" },
+        "date": { "type": "string" },
+        "items": { "type": "array" }
+      },
+      "required": ["id", "total", "timestamp", "date", "items"]
+    },
+    "Stock": {
+      "title": "Stock",
+      "description": "Inventory management for items",
+      "type": "object",
+      "properties": {
+        "itemId": { "type": "string" },
+        "count": { "type": "number" },
+        "minThreshold": { "type": "number" }
+      },
+      "required": ["count"]
+    },
+    "DraftBill": {
+      "title": "DraftBill",
+      "description": "Unfinished bills for different customers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "items": { "type": "array" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "name", "items", "updatedAt"]
+    },
+    "DailySummary": {
+      "title": "DailySummary",
+      "description": "Aggregated daily performance data",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string" },
+        "totalSales": { "type": "number" },
+        "totalOrders": { "type": "number" },
+        "itemCounts": { "type": "object" },
+        "hourlySales": { "type": "object" }
+      },
+      "required": ["date", "totalSales", "totalOrders"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/items/{itemId}": {
+      "schema": "UserItem",
+      "description": "Custom user items"
+    },
+    "/users/{userId}/overrides/{itemId}": {
+      "schema": "PriceOverride",
+      "description": "Price overrides for default items"
+    },
+    "/users/{userId}/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Sales history"
+    },
+    "/users/{userId}/inventory/{itemId}": {
+      "schema": "Stock",
+      "description": "Item stock levels"
+    },
+    "/users/{userId}/drafts/{billId}": {
+      "schema": "DraftBill",
+      "description": "Active parallel bills"
+    },
+    "/users/{userId}/summaries/{date}": {
+      "schema": "DailySummary",
+      "description": "Daily insights"
+    }
+  }
+}

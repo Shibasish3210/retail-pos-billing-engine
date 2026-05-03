@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isImmutable(field) {
+      return incoming()[field] == existing()[field];
+    }
+
+    // Entity Validations
+    function isValidUserItem(data) {
+      return data.keys().hasAll(['id', 'name', 'price', 'category']) &&
+             data.keys().size() <= 7 &&
+             data.id is string && data.id.size() <= 100 &&
+             data.name is string && data.name.size() <= 100 &&
+             data.price is number && data.price >= 0 &&
+             data.category is string;
+    }
+
+    function isValidPriceOverride(data) {
+      return data.keys().hasAll(['price']) &&
+             data.keys().size() <= 2 &&
+             data.price is number && data.price >= 0;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['id', 'total', 'timestamp', 'date', 'items']) &&
+             data.keys().size() == 5;
+    }
+
+    function isValidStock(data) {
+      return data.keys().hasAll(['count']) &&
+             data.count is number;
+    }
+
+    function isValidDraftBill(data) {
+      return data.keys().hasAll(['id', 'name', 'items', 'updatedAt']) &&
+             data.updatedAt is number;
+    }
+
+    function isValidSummary(data) {
+      return data.keys().hasAll(['date', 'totalSales', 'totalOrders']) &&
+             data.date is string &&
+             data.totalSales is number;
+    }
+
+    // Resource Paths
+    match /users/{userId} {
+      match /items/{itemId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(itemId) && isValidUserItem(incoming());
+        allow update: if isOwner(userId) && isValidUserItem(incoming()) && isImmutable('id');
+        allow delete: if isOwner(userId);
+      }
+
+      match /overrides/{itemId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId) && isValidId(itemId) && isValidPriceOverride(incoming());
+      }
+
+      match /orders/{orderId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(orderId) && isValidOrder(incoming());
+        allow update, delete: if false; 
+      }
+
+      match /inventory/{itemId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId) && isValidId(itemId) && isValidStock(incoming());
+      }
+
+      match /drafts/{billId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId) && isValidId(billId) && isValidDraftBill(incoming());
+        allow delete: if isOwner(userId);
+      }
+
+      match /summaries/{date} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId) && isValidSummary(incoming());
+      }
+    }
+  }
+}

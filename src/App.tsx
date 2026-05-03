@@ -28,14 +28,25 @@ import {
   Flame,
   Cookie,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  BarChart3,
+  Package,
+  LogIn,
+  LogOut,
+  TrendingUp,
+  AlertTriangle,
+  RefreshCcw
 } from 'lucide-react';
 import { DEFAULT_ITEMS, CATEGORY_COLORS, ITEM_CARD_COLORS } from './constants';
 import { Item, CartItem, Order, DailySummary, DraftBill } from './types';
 import { storage, calculateItemTotal } from './storage';
+import { auth, loginWithGoogle } from './lib/firebase';
+import { firebaseService } from './services/firebaseService';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 export default function App() {
-  const [view, setView] = useState<'billing' | 'summary' | 'settings'>('billing');
+  const [view, setView] = useState<'billing' | 'insights' | 'inventory' | 'settings'>('billing');
+  const [user, setUser] = useState<User | null>(null);
   const [bills, setBills] = useState<DraftBill[]>(() => {
     const saved = localStorage.getItem('chai_draft_bills');
     return saved ? JSON.parse(saved) : [{ id: 'b1', items: [], name: 'Bill 1', updatedAt: Date.now() }];
@@ -48,6 +59,14 @@ export default function App() {
   const [priceOverrides, setPriceOverrides] = useState<Record<string, number>>(() => storage.getPriceOverrides());
   const [isCartExpanded, setIsCartExpanded] = useState(false);
   const [showOrderSuccess, setShowOrderSuccess] = useState(false);
+
+  // Auth Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Sync bills and activeBillId to localStorage
   useEffect(() => {
@@ -190,6 +209,11 @@ export default function App() {
 
     storage.saveOrder(order);
     
+    // Sync with Firebase if logged in
+    if (user) {
+      firebaseService.saveOrder(order).catch(console.error);
+    }
+    
     // Remove completed bill and create new one if needed
     setBills(prev => {
       const remaining = prev.filter(b => b.id !== activeBillId);
@@ -219,23 +243,57 @@ export default function App() {
             </p>
           </div>
           <div className="flex gap-2">
+            {user ? (
+              <div className="flex items-center gap-3 mr-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+                <div className="text-right hidden sm:block">
+                  <p className="text-[10px] font-black text-slate-800 uppercase leading-none">{user.displayName?.split(' ')[0]}</p>
+                  <p className="text-[8px] font-bold text-slate-400">SYNCED</p>
+                </div>
+                <button 
+                  onClick={() => auth.signOut()}
+                  className="text-slate-400 hover:text-rose-500 transition-colors"
+                  title="Logout"
+                >
+                  <LogOut size={18} />
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={loginWithGoogle}
+                className="flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-xl border border-blue-100 font-black text-[10px] uppercase tracking-widest hover:bg-blue-100 transition-all mr-2"
+              >
+                <LogIn size={16} />
+                Login to Sync
+              </button>
+            )}
+
             <button 
               onClick={() => setView('billing')} 
               className={`p-3 rounded-xl transition-all ${view === 'billing' ? 'bg-[#0F172A] text-white shadow-lg' : 'bg-slate-50 text-slate-400 border border-slate-200'}`}
+              title="Billing"
             >
               <LayoutGrid size={22} />
             </button>
             <button 
-              onClick={() => setView('summary')} 
-              className={`p-3 rounded-xl transition-all ${view === 'summary' ? 'bg-[#0F172A] text-white shadow-lg' : 'bg-slate-50 text-slate-400 border border-slate-200'}`}
+              onClick={() => setView('insights')} 
+              className={`p-3 rounded-xl transition-all ${view === 'insights' ? 'bg-[#0F172A] text-white shadow-lg' : 'bg-slate-50 text-slate-400 border border-slate-200'}`}
+              title="Insights"
             >
-              <History size={22} />
+              <BarChart3 size={22} />
+            </button>
+            <button 
+              onClick={() => setView('inventory')} 
+              className={`p-3 rounded-xl transition-all ${view === 'inventory' ? 'bg-[#0F172A] text-white shadow-lg' : 'bg-slate-50 text-slate-400 border border-slate-200'}`}
+              title="Inventory"
+            >
+              <Package size={22} />
             </button>
             <button 
               onClick={() => setView('settings')} 
               className={`p-3 rounded-xl transition-all ${view === 'settings' ? 'bg-[#0F172A] text-white shadow-lg' : 'bg-slate-50 text-slate-400 border border-slate-200'}`}
+              title="Settings"
             >
-              <Plus size={22} />
+              <Settings size={22} />
             </button>
           </div>
         </div>
@@ -336,9 +394,15 @@ export default function App() {
               </motion.div>
             )}
 
-            {view === 'summary' && (
+            {view === 'insights' && (
               <div className="p-4 md:p-8 overflow-y-auto h-full">
-                <SummaryView />
+                <InsightsView />
+              </div>
+            )}
+
+            {view === 'inventory' && (
+              <div className="p-4 md:p-8 overflow-y-auto h-full">
+                <InventoryView onUpdate={() => setCustomItems(storage.getCustomItems())} />
               </div>
             )}
             
@@ -506,83 +570,231 @@ function DailyStats() {
   );
 }
 
-function SummaryView() {
-  const [summary, setSummary] = useState<DailySummary | null>(null);
+function InsightsView() {
+  const [summaries, setSummaries] = useState<DailySummary[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    setSummary(storage.getDailySummary(today));
+    async function load() {
+      const data = await firebaseService.getSummaries();
+      if (data.length > 0) {
+        setSummaries(data);
+      } else {
+        // Fallback to local today's summary
+        const today = new Date().toISOString().split('T')[0];
+        setSummaries([storage.getDailySummary(today)]);
+      }
+      setLoading(false);
+    }
+    load();
   }, []);
 
-  if (!summary) return null;
+  if (loading) return (
+    <div className="h-full flex items-center justify-center">
+      <RefreshCcw className="animate-spin text-slate-300" size={48} />
+    </div>
+  );
+
+  const activeSummary = summaries[0];
+  if (!activeSummary) return null;
 
   return (
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="space-y-8 pb-12"
+      className="space-y-12 pb-24"
     >
-      <div>
-        <h1 className="text-3xl font-[900] tracking-tighter text-[#0F172A]">DAILY SUMMARY</h1>
-        <p className="text-slate-500 font-medium uppercase text-xs tracking-widest">{new Date().toLocaleDateString(undefined, { dateStyle: 'full' })}</p>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <h1 className="text-4xl font-[1000] tracking-tighter text-[#0F172A] leading-none mb-2">INSIGHTS</h1>
+          <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em]">Daily Business Analytics</p>
+        </div>
+        
+        {summaries.length > 1 && (
+          <div className="bg-emerald-50 text-emerald-700 px-6 py-3 rounded-2xl flex items-center gap-3 border border-emerald-100">
+            <TrendingUp size={20} />
+            <span className="font-black text-sm uppercase tracking-widest">Growth Tracking Active</span>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-8 rounded-[24px] border-2 border-slate-100 shadow-sm">
-          <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest mb-2">Total Sales</p>
-          <div className="text-4xl font-[900] text-[#10B981]">₹{summary.totalSales}</div>
-        </div>
-        <div className="bg-white p-8 rounded-[24px] border-2 border-slate-100 shadow-sm">
-          <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest mb-2">Total Orders</p>
-          <div className="text-4xl font-[900] text-[#2563EB]">{summary.totalOrders}</div>
-        </div>
-        <div className="bg-white p-8 rounded-[24px] border-2 border-slate-100 shadow-sm">
-          <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest mb-2">Avg / Order</p>
-          <div className="text-4xl font-[900] text-[#F59E0B]">
-            ₹{summary.totalOrders > 0 ? (summary.totalSales / summary.totalOrders).toFixed(0) : 0}
+        <div className="bg-white p-8 rounded-[32px] border-2 border-slate-100 shadow-sm relative overflow-hidden group">
+          <div className="absolute -right-4 -top-4 opacity-[0.03] group-hover:scale-110 transition-transform">
+            <BarChart3 size={120} />
           </div>
+          <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest mb-4">Total Revenue</p>
+          <div className="text-5xl font-[1000] text-[#10B981] tracking-tighter">₹{activeSummary.totalSales}</div>
+          {summaries[1] && (
+            <p className="text-[10px] font-bold text-slate-400 mt-2">
+              VS YESTERDAY: ₹{summaries[1].totalSales}
+            </p>
+          )}
+        </div>
+        <div className="bg-white p-8 rounded-[32px] border-2 border-slate-100 shadow-sm relative overflow-hidden group">
+          <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest mb-4">Orders Processed</p>
+          <div className="text-5xl font-[1000] text-[#2563EB] tracking-tighter">{activeSummary.totalOrders}</div>
+          <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-widest">Volume Efficiency</p>
+        </div>
+        <div className="bg-white p-8 rounded-[32px] border-2 border-slate-100 shadow-sm relative overflow-hidden group">
+          <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest mb-4">Ticket Avg</p>
+          <div className="text-5xl font-[1000] text-[#F59E0B] tracking-tighter">
+            ₹{activeSummary.totalOrders > 0 ? (activeSummary.totalSales / activeSummary.totalOrders).toFixed(0) : 0}
+          </div>
+          <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-widest">Revenue Per Head</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-white p-8 rounded-[32px] border-2 border-slate-100 shadow-sm">
-          <h3 className="text-sm font-[900] text-slate-400 uppercase tracking-widest mb-6">Items Sold</h3>
-          <div className="space-y-3">
-            {Object.entries(summary.itemCounts).length > 0 ? (
-              Object.entries(summary.itemCounts).sort((a, b) => (b[1] as number) - (a[1] as number)).map(([name, count]) => (
-                <div key={name} className="flex items-center justify-between pb-3 border-b-2 border-slate-50 last:border-0">
-                  <span className="font-bold text-slate-700">{name}</span>
-                  <span className="bg-[#F1F5F9] px-3 py-1 rounded-lg font-[900] text-sm text-[#0F172A]">{count}</span>
+          <h3 className="text-xs font-[1000] text-slate-400 uppercase tracking-[0.2em] mb-8 border-b-2 border-slate-50 pb-4">Product Performance</h3>
+          <div className="space-y-4">
+            {Object.entries(activeSummary.itemCounts).length > 0 ? (
+              Object.entries(activeSummary.itemCounts).sort((a, b) => (b[1] as number) - (a[1] as number)).map(([name, count]) => (
+                <div key={name} className="flex items-center justify-between pb-2">
+                  <div className="flex flex-col">
+                    <span className="font-black text-slate-800 text-sm">{name}</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sold Quantity</span>
+                  </div>
+                  <span className="bg-slate-100 px-4 py-2 rounded-xl font-black text-sm text-[#0F172A]">{count}</span>
                 </div>
               ))
             ) : (
-              <p className="text-slate-400 font-medium">No sales recorded today.</p>
+              <div className="py-12 flex flex-col items-center justify-center text-slate-300 gap-4">
+                <LayoutGrid size={48} strokeWidth={1} />
+                <p className="text-[10px] font-black uppercase tracking-widest">No Sales Data for {activeSummary.date}</p>
+              </div>
             )}
           </div>
         </div>
 
         <div className="bg-white p-8 rounded-[32px] border-2 border-slate-100 shadow-sm">
-          <h3 className="text-sm font-[900] text-slate-400 uppercase tracking-widest mb-6">Hourly Sales</h3>
-          <div className="space-y-4">
+          <h3 className="text-xs font-[1000] text-slate-400 uppercase tracking-[0.2em] mb-8 border-b-2 border-slate-50 pb-4">Hourly Sales Velocity</h3>
+          <div className="space-y-5">
             {Array.from({ length: 24 }).map((_, i) => {
-              const sales = summary.hourlySales[i] || 0;
+              const sales = activeSummary.hourlySales[i] || 0;
               if (sales === 0 && (i < 6 || i > 22)) return null;
               return (
-                <div key={i} className="flex items-center gap-4">
-                  <span className="w-14 text-[10px] text-slate-400 font-[900]">{i}:00</span>
-                  <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                <div key={i} className="flex items-center gap-6">
+                  <span className="w-14 text-[10px] text-slate-400 font-black tracking-widest">{i < 10 ? `0${i}` : i}:00</span>
+                  <div className="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden">
                     <motion.div 
                       initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(100, (sales / (summary.totalSales || 1)) * 300)}%` }}
-                      className="h-full bg-[#10B981]"
+                      animate={{ width: `${Math.min(100, (sales / (activeSummary.totalSales || 1)) * 300)}%` }}
+                      className="h-full bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
                     />
                   </div>
-                  <span className="w-16 text-right font-[900] text-[#0F172A] text-sm">₹{sales}</span>
+                  <span className="w-20 text-right font-black text-[#0F172A] text-sm tracking-tighter">₹{sales}</span>
                 </div>
               );
             })}
           </div>
         </div>
+      </div>
+      
+      {/* Historical List */}
+      {summaries.length > 1 && (
+        <div className="bg-white p-8 rounded-[32px] border-2 border-slate-100 shadow-sm">
+          <h3 className="text-xs font-[1000] text-slate-400 uppercase tracking-[0.2em] mb-8 border-b-2 border-slate-50 pb-4">Historical Records</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <th className="pb-4 pr-4 border-b border-slate-50">Date</th>
+                  <th className="pb-4 pr-4 border-b border-slate-50">Sales</th>
+                  <th className="pb-4 pr-4 border-b border-slate-50">Orders</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {summaries.map(s => (
+                  <tr key={s.date} className="group">
+                    <td className="py-4 font-black text-sm text-slate-600">{s.date}</td>
+                    <td className="py-4 font-black text-sm text-emerald-600">₹{s.totalSales}</td>
+                    <td className="py-4 font-black text-sm text-blue-600">{s.totalOrders}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+function InventoryView({ onUpdate }: { onUpdate: () => void }) {
+  const customItems = useMemo(() => storage.getCustomItems(), []);
+  const [items, setItems] = useState<Item[]>(() => {
+    return [...DEFAULT_ITEMS, ...customItems];
+  });
+
+  const handleUpdateStock = (id: string) => {
+    const newStock = prompt("Enter current stock level:");
+    if (newStock !== null && !isNaN(Number(newStock))) {
+      const updated = items.map(i => {
+        if (i.id === id) {
+          const item = { ...i, stock: Number(newStock), useStock: true };
+          // If custom item, save to storage
+          if (customItems.find(ci => ci.id === id)) {
+             const saved = storage.getCustomItems();
+             const newSaved = saved.map(s => s.id === id ? item : s);
+             localStorage.setItem('chai_bill_items', JSON.stringify(newSaved));
+          }
+          return item;
+        }
+        return i;
+      });
+      setItems(updated);
+      onUpdate();
+      if (auth.currentUser) {
+        firebaseService.syncInventory(updated).catch(console.error);
+      }
+    }
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="max-w-4xl space-y-12 pb-24"
+    >
+      <div>
+        <h1 className="text-4xl font-[1000] tracking-tighter text-[#0F172A] leading-none mb-2">INVENTORY</h1>
+        <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em]">Stock Maintenance & Alerts</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {items.map(item => (
+          <div key={item.id} className={`p-8 rounded-[32px] border-2 shadow-sm relative group transition-all ${item.useStock ? 'bg-white border-slate-100' : 'bg-slate-50 border-transparent opacity-60'}`}>
+            <div className={`p-3 rounded-2xl w-fit mb-6 ${item.color.split(' ')[0]}`}>
+               <AlertTriangle size={24} className={item.stock && item.stock < 10 ? 'text-rose-500' : 'text-slate-400'} />
+            </div>
+            
+            <p className="font-black text-xl text-[#0F172A] tracking-tight leading-none mb-1">{item.name}</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">{item.category}</p>
+            
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-none mb-2">Current Stock</p>
+                <p className={`text-4xl font-[1000] tracking-tighter ${item.useStock ? (item.stock && item.stock < 10 ? 'text-rose-600' : 'text-[#0F172A]') : 'text-slate-300'}`}>
+                  {item.useStock ? item.stock : '--'}
+                </p>
+              </div>
+              <button 
+                onClick={() => handleUpdateStock(item.id)}
+                className="bg-[#0F172A] text-white p-4 rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition-all"
+              >
+                <Plus size={20} />
+              </button>
+            </div>
+            
+            {!item.useStock && (
+              <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px] rounded-[32px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer" onClick={() => handleUpdateStock(item.id)}>
+                <p className="font-black text-[10px] uppercase bg-[#0F172A] text-white px-4 py-2 rounded-full tracking-widest">Enable Tracking</p>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </motion.div>
   );
