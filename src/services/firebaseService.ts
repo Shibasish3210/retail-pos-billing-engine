@@ -55,14 +55,6 @@ export const firebaseService = {
       batch.set(summaryRef, newSummary);
     }
 
-    // Update inventory
-    order.items.forEach(item => {
-      if (item.useStock) {
-        const stockRef = doc(db, 'users', userId, 'inventory', item.id);
-        batch.update(stockRef, { count: increment(-item.quantity) });
-      }
-    });
-
     try {
       await batch.commit();
     } catch (error) {
@@ -80,21 +72,6 @@ export const firebaseService = {
       handleFirestoreError(error, OperationType.GET, 'items');
       return [];
     }
-  },
-
-  async syncInventory(items: Item[]) {
-    if (!auth.currentUser) return;
-    const userId = auth.currentUser.uid;
-    const batch = writeBatch(db);
-    
-    items.forEach(item => {
-      if (item.useStock) {
-        const ref = doc(db, 'users', userId, 'inventory', item.id);
-        batch.set(ref, { count: item.stock || 0, itemId: item.id }, { merge: true });
-      }
-    });
-    
-    await batch.commit();
   },
 
   async getSummaries(): Promise<DailySummary[]> {

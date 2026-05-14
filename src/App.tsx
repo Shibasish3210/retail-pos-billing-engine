@@ -6,37 +6,21 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  History, 
-  ShoppingCart, 
-  Plus, 
-  Settings, 
-  Trash2, 
-  ChevronRight, 
-  X,
-  CheckCircle2,
-  Trash,
-  Minus,
-  LayoutGrid,
-  Coffee,
-  Zap,
-  Box,
-  Wind,
-  Container,
-  Cake,
-  Wheat,
-  Utensils,
-  Flame,
-  Cookie,
-  ChevronUp,
-  ChevronDown,
-  BarChart3,
-  Package,
-  LogIn,
-  LogOut,
-  TrendingUp,
-  AlertTriangle,
-  RefreshCcw
+  History, ShoppingCart, Plus, Settings, Trash2, ChevronRight, X,
+  CheckCircle2, Minus, LayoutGrid, Coffee, Zap, Box, Wind, Container,
+  Cake, Wheat, Utensils, Flame, Cookie, ChevronUp, ChevronDown,
+  BarChart3, TrendingUp, AlertTriangle, RefreshCcw, LogOut, User as UserIcon,
+  Clock, Calendar, ArrowUpRight, ArrowDownRight, Filter, Download,
+  LogIn, Package
 } from 'lucide-react';
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  AreaChart, Area, BarChart, Bar, Cell
+} from 'recharts';
+import { 
+  format, subDays, startOfMonth, startOfWeek, isSameDay, 
+  isWithinInterval, parseISO, eachDayOfInterval 
+} from 'date-fns';
 import { DEFAULT_ITEMS, CATEGORY_COLORS, ITEM_CARD_COLORS } from './constants';
 import { Item, CartItem, Order, DailySummary, DraftBill } from './types';
 import { storage, calculateItemTotal } from './storage';
@@ -45,7 +29,7 @@ import { firebaseService } from './services/firebaseService';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
 export default function App() {
-  const [view, setView] = useState<'billing' | 'insights' | 'inventory' | 'settings'>('billing');
+  const [view, setView] = useState<'billing' | 'insights' | 'settings'>('billing');
   const [user, setUser] = useState<User | null>(null);
   const [bills, setBills] = useState<DraftBill[]>(() => {
     const saved = localStorage.getItem('chai_draft_bills');
@@ -83,6 +67,13 @@ export default function App() {
   );
   
   const cart = activeBill?.items || [];
+
+  // Reset cart expansion when empty
+  useEffect(() => {
+    if (cart.length === 0) {
+      setIsCartExpanded(false);
+    }
+  }, [cart.length]);
 
   // Load custom items on mount
   useEffect(() => {
@@ -262,7 +253,7 @@ export default function App() {
             {user ? (
               <div className="flex items-center gap-2 bg-slate-50 px-2 md:px-3 py-1.5 rounded-2xl border border-slate-100">
                 <div className="text-right hidden sm:block">
-                  <p className="text-[20px] font-black text-slate-800 uppercase leading-none">{user.displayName?.split(' ')[0]}</p>
+                  <p className="text-[12px] font-black text-slate-800 uppercase leading-none">{user.displayName?.split(' ')[0]}</p>
                   <p className="text-[8px] font-bold text-emerald-500 tracking-[0.2em]">SYNCED</p>
                 </div>
                 <button 
@@ -287,7 +278,6 @@ export default function App() {
             <nav className="hidden md:flex items-center gap-2 ml-4">
               <DesktopNavButton active={view === 'billing'} onClick={() => setView('billing')} icon={<LayoutGrid size={20} />} label="POS" />
               <DesktopNavButton active={view === 'insights'} onClick={() => setView('insights')} icon={<BarChart3 size={20} />} label="Stats" />
-              <DesktopNavButton active={view === 'inventory'} onClick={() => setView('inventory')} icon={<Package size={20} />} label="Stock" />
               <DesktopNavButton active={view === 'settings'} onClick={() => setView('settings')} icon={<Settings size={20} />} label="Config" />
             </nav>
           </div>
@@ -344,7 +334,7 @@ export default function App() {
                     className="p-6 rounded-3xl border-2 border-dashed border-slate-200 text-slate-300 hover:border-blue-400 hover:text-blue-500 transition-all flex flex-col items-center justify-center min-w-[120px] shrink-0 bg-slate-50/50"
                   >
                     <Plus size={24} />
-                    <span className="text-[20px] font-black uppercase mt-1 tracking-widest">Add Bill</span>
+                    <span className="text-[10px] font-black uppercase mt-1 tracking-widest">Add Bill</span>
                   </button>
                 </div>
 
@@ -374,7 +364,7 @@ export default function App() {
                             </div>
                             
                             <div className="bg-white/40 backdrop-blur-md px-6 py-2.5 rounded-2xl w-full flex justify-between items-center relative z-10 border border-white/40">
-                              <span className="text-[20px] font-black uppercase tracking-widest opacity-60">₹{item.price}</span>
+                              <span className="text-sm font-black uppercase tracking-widest opacity-60">₹{item.price}</span>
                               <Plus size={16} className="opacity-60" />
                             </div>
                           </button>
@@ -392,12 +382,6 @@ export default function App() {
               </div>
             )}
 
-            {view === 'inventory' && (
-              <div className="p-4 md:p-8 overflow-y-auto h-full">
-                <InventoryView onUpdate={() => setCustomItems(storage.getCustomItems())} />
-              </div>
-            )}
-            
             {view === 'settings' && (
               <div className="p-4 md:p-8 overflow-y-auto h-full">
                 <SettingsView 
@@ -428,7 +412,7 @@ export default function App() {
               </div>
               <div className="flex flex-col">
                 <p className="font-bold text-[18px] leading-tight tracking-tight">Current Bill</p>
-                <p className="text-[20px] font-black text-slate-500 uppercase tracking-widest mt-0.5">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-0.5">
                   {cart.length} {cart.length === 1 ? 'ITEM' : 'ITEMS'} READY
                 </p>
               </div>
@@ -549,7 +533,7 @@ export default function App() {
             </div>
             <div>
               <p className="font-[1000] text-lg tracking-tight">Order Finalized</p>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Inventory Updated</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Transaction Recorded</p>
             </div>
           </motion.div>
         )}
@@ -559,7 +543,6 @@ export default function App() {
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex items-center justify-around p-2 pb-6 z-50">
         <MobileNavButton active={view === 'billing'} onClick={() => setView('billing')} icon={<LayoutGrid size={24} />} label="POS" />
         <MobileNavButton active={view === 'insights'} onClick={() => setView('insights')} icon={<BarChart3 size={24} />} label="Stats" />
-        <MobileNavButton active={view === 'inventory'} onClick={() => setView('inventory')} icon={<Package size={24} />} label="Stock" />
         <MobileNavButton active={view === 'settings'} onClick={() => setView('settings')} icon={<Settings size={24} />} label="Config" />
       </nav>
     </div>
@@ -634,16 +617,22 @@ function DailyStats() {
 function InsightsView() {
   const [summaries, setSummaries] = useState<DailySummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'custom'>('daily');
+  const [date1, setDate1] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [date2, setDate2] = useState<string>(format(subDays(new Date(), 1), 'yyyy-MM-dd'));
+  const [viewMode, setViewMode] = useState<'overview' | 'comparison'>('overview');
 
   useEffect(() => {
     async function load() {
       const data = await firebaseService.getSummaries();
       if (data.length > 0) {
-        setSummaries(data);
+        setSummaries(data.sort((a, b) => b.date.localeCompare(a.date)));
+        setDate1(data[0].date);
+        if (data[1]) setDate2(data[1].date);
       } else {
-        // Fallback to local today's summary
-        const today = new Date().toISOString().split('T')[0];
+        const today = format(new Date(), 'yyyy-MM-dd');
         setSummaries([storage.getDailySummary(today)]);
+        setDate1(today);
       }
       setLoading(false);
     }
@@ -656,208 +645,469 @@ function InsightsView() {
     </div>
   );
 
-  const activeSummary = summaries[0];
-  if (!activeSummary) return null;
+  // Helper to aggregate data for charts
+  const getChartData = () => {
+    // Show last 7 days or last 30 days
+    const daysToShow = period === 'monthly' ? 30 : 7;
+    const interval = eachDayOfInterval({
+      start: subDays(new Date(), daysToShow - 1),
+      end: new Date()
+    });
+
+    return interval.map(day => {
+      const dateStr = format(day, 'yyyy-MM-dd');
+      const found = summaries.find(s => s.date === dateStr);
+      return {
+        date: format(day, 'MMM dd'),
+        fullDate: dateStr,
+        sales: found?.totalSales || 0,
+        orders: found?.totalOrders || 0
+      };
+    });
+  };
+
+  const currentSummary = summaries.find(s => s.date === date1) || summaries[0];
+  const comparisonSummary = summaries.find(s => s.date === date2);
+  const chartData = getChartData();
+
+  // Aggregate stats for the current period
+  const totalRevenue = chartData.reduce((acc, d) => acc + d.sales, 0);
+  const totalOrders = chartData.reduce((acc, d) => acc + d.orders, 0);
+
+  const getGrowth = (current: number, previous: number) => {
+    if (previous === 0) return 100;
+    return ((current - previous) / previous) * 100;
+  };
 
   return (
     <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-12 pb-24"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-8 pb-32 max-w-[1400px] mx-auto px-4 md:px-8"
     >
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <h1 className="text-4xl font-[1000] tracking-tighter text-[#0F172A] leading-none mb-2">INSIGHTS</h1>
-          <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em]">Daily Business Analytics</p>
-        </div>
-        
-        {summaries.length > 1 && (
-          <div className="bg-emerald-50 text-emerald-700 px-6 py-3 rounded-2xl flex items-center gap-3 border border-emerald-100">
-            <TrendingUp size={20} />
-            <span className="font-black text-sm uppercase tracking-widest">Growth Tracking Active</span>
+      {/* Header & controls */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm">
+        <div className="flex items-center gap-5">
+          <div className="bg-blue-600 p-4 rounded-2xl shadow-lg shadow-blue-200">
+            <BarChart3 className="text-white" size={28} />
           </div>
-        )}
+          <div>
+            <h1 className="text-4xl font-[1000] tracking-tighter text-[#0F172A] leading-none mb-1">DASHBOARD</h1>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Advanced Business Analytics</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
+            {(['overview', 'comparison'] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                  viewMode === mode ? 'bg-[#0F172A] text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
+            {(['daily', 'weekly', 'monthly'] as const).map(p => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                  period === p ? 'bg-white text-[#0F172A] shadow-sm border border-slate-200' : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-8 rounded-[32px] border-2 border-slate-100 shadow-sm relative overflow-hidden group">
-          <div className="absolute -right-4 -top-4 opacity-[0.03] group-hover:scale-110 transition-transform">
-            <BarChart3 size={120} />
-          </div>
-          <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest mb-4">Total Revenue</p>
-          <div className="text-5xl font-[1000] text-[#10B981] tracking-tighter">₹{activeSummary.totalSales}</div>
-          {summaries[1] && (
-            <p className="text-[10px] font-bold text-slate-400 mt-2">
-              VS YESTERDAY: ₹{summaries[1].totalSales}
-            </p>
-          )}
-        </div>
-        <div className="bg-white p-8 rounded-[32px] border-2 border-slate-100 shadow-sm relative overflow-hidden group">
-          <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest mb-4">Orders Processed</p>
-          <div className="text-5xl font-[1000] text-[#2563EB] tracking-tighter">{activeSummary.totalOrders}</div>
-          <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-widest">Volume Efficiency</p>
-        </div>
-        <div className="bg-white p-8 rounded-[32px] border-2 border-slate-100 shadow-sm relative overflow-hidden group">
-          <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest mb-4">Ticket Avg</p>
-          <div className="text-5xl font-[1000] text-[#F59E0B] tracking-tighter">
-            ₹{activeSummary.totalOrders > 0 ? (activeSummary.totalSales / activeSummary.totalOrders).toFixed(0) : 0}
-          </div>
-          <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-widest">Revenue Per Head</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white p-8 rounded-[32px] border-2 border-slate-100 shadow-sm">
-          <h3 className="text-xs font-[1000] text-slate-400 uppercase tracking-[0.2em] mb-8 border-b-2 border-slate-50 pb-4">Product Performance</h3>
-          <div className="space-y-4">
-            {Object.entries(activeSummary.itemCounts).length > 0 ? (
-              Object.entries(activeSummary.itemCounts).sort((a, b) => (b[1] as number) - (a[1] as number)).map(([name, count]) => (
-                <div key={name} className="flex items-center justify-between pb-2">
-                  <div className="flex flex-col">
-                    <span className="font-black text-slate-800 text-sm">{name}</span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sold Quantity</span>
-                  </div>
-                  <span className="bg-slate-100 px-4 py-2 rounded-xl font-black text-sm text-[#0F172A]">{count}</span>
-                </div>
-              ))
-            ) : (
-              <div className="py-12 flex flex-col items-center justify-center text-slate-300 gap-4">
-                <LayoutGrid size={48} strokeWidth={1} />
-                <p className="text-[20px] font-black uppercase tracking-widest">No Sales Data for {activeSummary.date}</p>
+      {viewMode === 'overview' ? (
+        <div className="space-y-8">
+          {/* Main Trend Chart */}
+          <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm relative overflow-hidden group">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">Sales Velocity</h3>
+                <p className="text-2xl font-[1000] text-[#0F172A] tracking-tighter">Revenue Trendline</p>
               </div>
-            )}
+              <div className="flex items-center gap-4">
+                 <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-blue-500 rounded-full" />
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Revenue</span>
+                 </div>
+              </div>
+            </div>
+            
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis 
+                    dataKey="date" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} 
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '16px' }}
+                    itemStyle={{ fontSize: '12px', fontWeight: 900, textTransform: 'uppercase' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="sales" 
+                    stroke="#3b82f6" 
+                    strokeWidth={4} 
+                    fillOpacity={1} 
+                    fill="url(#colorSales)" 
+                    animationDuration={1500}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        </div>
 
-        <div className="bg-white p-8 rounded-[32px] border-2 border-slate-100 shadow-sm">
-          <h3 className="text-xs font-[1000] text-slate-400 uppercase tracking-[0.2em] mb-8 border-b-2 border-slate-50 pb-4">Hourly Sales Velocity</h3>
-          <div className="space-y-5">
-            {Array.from({ length: 24 }).map((_, i) => {
-              const sales = activeSummary.hourlySales[i] || 0;
-              if (sales === 0 && (i < 6 || i > 22)) return null;
-              return (
-                <div key={i} className="flex items-center gap-6">
-                  <span className="w-14 text-[10px] text-slate-400 font-black tracking-widest">{i < 10 ? `0${i}` : i}:00</span>
-                  <div className="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(100, (sales / (activeSummary.totalSales || 1)) * 300)}%` }}
-                      className="h-full bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
-                    />
-                  </div>
-                  <span className="w-20 text-right font-black text-[#0F172A] text-sm tracking-tighter">₹{sales}</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <StatCard 
+              label={`${period} Revenue`} 
+              value={`₹${totalRevenue}`} 
+              sub={`Target period total`}
+              trend={period === 'daily' ? getGrowth(currentSummary.totalSales, comparisonSummary?.totalSales || 0) : undefined}
+              icon={<TrendingUp className="text-emerald-500" size={20} />}
+            />
+            <StatCard 
+              label="Active Orders" 
+              value={totalOrders.toString()} 
+              sub={`${totalOrders > 0 ? (totalRevenue / totalOrders).toFixed(0) : 0} avg ticket`}
+              icon={<ShoppingCart className="text-blue-500" size={20} />}
+            />
+            <StatCard 
+              label="Top Seller" 
+              value={Object.entries(currentSummary.itemCounts).sort((a,b) => (b[1] as number) - (a[1] as number))[0]?.[0] || 'N/A'} 
+              sub={`${Object.entries(currentSummary.itemCounts).sort((a,b) => (b[1] as number) - (a[1] as number))[0]?.[1] || 0} units sold`}
+              icon={<BarChart3 className="text-amber-500" size={20} />}
+            />
+            <StatCard 
+              label="Peak Time" 
+              value={`${Object.entries(currentSummary.hourlySales).sort((a,b) => (b[1] as number) - (a[1] as number))[0]?.[0] || 0}:00`} 
+              sub="Highest velocity"
+              icon={<Clock className="text-purple-500" size={20} />}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Detailed Item Performance */}
+            <div className="bg-white p-10 rounded-[40px] border border-slate-100 shadow-sm">
+              <div className="flex items-center justify-between mb-10">
+                <div>
+                  <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-[0.3em] mb-1">Inventory Pulse</h3>
+                  <p className="text-2xl font-[1000] text-[#0F172A] tracking-tighter">Product Velocity</p>
                 </div>
-              );
-            })}
+                <div className="p-3 bg-slate-50 rounded-2xl">
+                  <Filter size={20} className="text-slate-400" />
+                </div>
+              </div>
+              
+              <div className="space-y-6">
+                {Object.entries(currentSummary.itemCounts).length > 0 ? (
+                  Object.entries(currentSummary.itemCounts).sort((a, b) => (b[1] as number) - (a[1] as number)).map(([name, count]) => {
+                    const prevCount = comparisonSummary?.itemCounts[name] || 0;
+                    const growth = getGrowth(count as number, prevCount as number);
+                    return (
+                      <div key={name} className="flex items-center justify-between group">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center font-black text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-500 transition-all`}>
+                             {name.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-black text-[#0F172A] text-lg leading-none mb-1">{name}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                               {count as number} units sold
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <span className="bg-white border-2 border-slate-50 px-5 py-2 rounded-2xl font-black text-lg text-[#0F172A] shadow-sm">
+                            {count as number}
+                          </span>
+                          <div className={`flex items-center gap-1 mt-1 ${growth >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                             {growth >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                             <span className="text-[10px] font-black tracking-widest">{Math.abs(growth).toFixed(0)}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="py-20 flex flex-col items-center justify-center text-slate-200 gap-6">
+                    <LayoutGrid size={72} strokeWidth={1} />
+                    <p className="font-black text-xs uppercase tracking-widest">No Activity Recorded</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Historical Trend Table */}
+            <div className="bg-white p-10 rounded-[40px] border border-slate-100 shadow-sm">
+               <div className="flex items-center justify-between mb-10">
+                <div>
+                  <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-[0.3em] mb-1">Historical Log</h3>
+                  <p className="text-2xl font-[1000] text-[#0F172A] tracking-tighter">Business Record</p>
+                </div>
+                <div className="p-3 bg-emerald-50 rounded-2xl">
+                  <Download size={20} className="text-emerald-500" />
+                </div>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b border-slate-50">
+                      <th className="pb-6 text-left">Date</th>
+                      <th className="pb-6 text-center">Orders</th>
+                      <th className="pb-6 text-right">Revenue</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {summaries.slice(0, 10).map(s => (
+                      <tr key={s.date} className="group hover:bg-slate-50/50 transition-colors">
+                        <td className="py-5">
+                          <p className="font-black text-slate-800">{format(parseISO(s.date), 'EEEE')}</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{s.date}</p>
+                        </td>
+                        <td className="py-5 text-center">
+                          <span className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg font-black text-xs">
+                             {s.totalOrders}
+                          </span>
+                        </td>
+                        <td className="py-5 text-right font-black text-lg text-[#0F172A]">
+                           ₹{s.totalSales}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-      
-      {/* Historical List */}
-      {summaries.length > 1 && (
-        <div className="bg-white p-8 rounded-[32px] border-2 border-slate-100 shadow-sm">
-          <h3 className="text-xs font-[1000] text-slate-400 uppercase tracking-[0.2em] mb-8 border-b-2 border-slate-50 pb-4">Historical Records</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="text-[20px] font-black text-slate-400 uppercase tracking-widest">
-                  <th className="pb-4 pr-4 border-b border-slate-50">Date</th>
-                  <th className="pb-4 pr-4 border-b border-slate-50">Sales</th>
-                  <th className="pb-4 pr-4 border-b border-slate-50">Orders</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {summaries.map(s => (
-                  <tr key={s.date} className="group">
-                    <td className="py-4 font-black text-sm text-slate-600">{s.date}</td>
-                    <td className="py-4 font-black text-sm text-emerald-600">₹{s.totalSales}</td>
-                    <td className="py-4 font-black text-sm text-blue-600">{s.totalOrders}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      ) : (
+        <div className="space-y-12">
+          {/* Comparison Selector */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-900 p-10 rounded-[40px] shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -mr-32 -mt-32" />
+            
+            <div className="space-y-4 relative z-10">
+              <div className="flex items-center gap-3">
+                 <div className="w-4 h-4 rounded-full bg-blue-500" />
+                 <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">PRIMARY TARGET</label>
+              </div>
+              <select 
+                value={date1}
+                onChange={(e) => setDate1(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-3xl p-6 font-black text-2xl text-white outline-none focus:border-blue-500 transition-all appearance-none"
+              >
+                {summaries.map(s => <option key={s.date} value={s.date} className="bg-slate-900">{s.date} - ₹{s.totalSales}</option>)}
+              </select>
+            </div>
+
+            <div className="space-y-4 relative z-10">
+              <div className="flex items-center gap-3">
+                 <div className="w-4 h-4 rounded-full bg-purple-500" />
+                 <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">COMPARISON TARGET</label>
+              </div>
+              <select 
+                value={date2}
+                onChange={(e) => setDate2(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-3xl p-6 font-black text-2xl text-white outline-none focus:border-purple-500 transition-all appearance-none"
+              >
+                {summaries.map(s => <option key={s.date} value={s.date} className="bg-slate-900">{s.date} - ₹{s.totalSales}</option>)}
+              </select>
+            </div>
           </div>
+
+          {currentSummary && comparisonSummary && (
+            <div className="space-y-12">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <ComparisonCard 
+                  label="Sales Volume" 
+                  val1={currentSummary.totalSales} 
+                  val2={comparisonSummary.totalSales} 
+                  prefix="₹"
+                  isCurrency
+                />
+                <ComparisonCard 
+                  label="Order Count" 
+                  val1={currentSummary.totalOrders} 
+                  val2={comparisonSummary.totalOrders} 
+                />
+                <ComparisonCard 
+                  label="Efficiency" 
+                  val1={currentSummary.totalOrders > 0 ? currentSummary.totalSales / currentSummary.totalOrders : 0} 
+                  val2={comparisonSummary.totalOrders > 0 ? comparisonSummary.totalSales / comparisonSummary.totalOrders : 0}
+                  prefix="₹"
+                  round
+                />
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Item-by-item comparison */}
+                <div className="bg-white p-10 rounded-[40px] border border-slate-100 shadow-sm">
+                   <h3 className="text-[11px] font-[1000] text-slate-300 uppercase tracking-[0.3em] mb-10 border-b border-slate-50 pb-6">Product Delta Analysis</h3>
+                   <div className="space-y-6">
+                      {Array.from(new Set([...Object.keys(currentSummary.itemCounts), ...Object.keys(comparisonSummary.itemCounts)])).map(name => {
+                        const v1 = currentSummary.itemCounts[name] || 0;
+                        const v2 = comparisonSummary.itemCounts[name] || 0;
+                        const delta = (v1 as number) - (v2 as number);
+                        const pDelta = v2 !== 0 ? ((v1 as number) - (v2 as number)) / (v2 as number) * 100 : 0;
+
+                        return (
+                          <div key={name} className="flex items-center justify-between group">
+                            <div>
+                               <p className="font-black text-lg text-[#0F172A] leading-none mb-1">{name}</p>
+                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                  {v2 as number} → {v1 as number} units
+                               </p>
+                            </div>
+                            <div className="flex items-center gap-4">
+                               <div className={`px-4 py-2 rounded-xl font-black text-sm flex items-center gap-2 ${delta >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                  {delta >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                                  {Math.abs(delta)}
+                               </div>
+                               <div className="text-[10px] font-black text-slate-300 w-12 text-right">
+                                  {pDelta === 0 ? '0%' : `${pDelta > 0 ? '+' : ''}${pDelta.toFixed(0)}%`}
+                               </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                   </div>
+                </div>
+
+                {/* Velocity Pulse Overlay */}
+                <div className="bg-[#0F172A] p-10 rounded-[40px] shadow-2xl text-white relative overflow-hidden">
+                   <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -mr-32 -mt-32" />
+                   
+                   <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] mb-10 border-b border-white/5 pb-6">Hourly Pulse Comparison</h3>
+                   <div className="space-y-6">
+                    {Array.from({ length: 24 }).map((_, i) => {
+                      const h1 = currentSummary.hourlySales[i] || 0;
+                      const h2 = comparisonSummary.hourlySales[i] || 0;
+                      if (h1 === 0 && h2 === 0 && (i < 8 || i > 22)) return null;
+
+                  const values1 = Object.values(currentSummary.hourlySales) as number[];
+                  const values2 = Object.values(comparisonSummary.hourlySales) as number[];
+                  const max = Math.max(...values1, ...values2, 1);
+
+                  return (
+                    <div key={i} className="space-y-2">
+                           <div className="flex justify-between items-end">
+                              <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">{i}:00</span>
+                              <div className="flex items-center gap-3">
+                                 <span className="text-[10px] font-black text-emerald-400">₹{h1}</span>
+                                 <span className="text-[10px] font-black text-blue-400/50">₹{h2}</span>
+                              </div>
+                           </div>
+                           <div className="h-3 bg-white/5 rounded-full overflow-hidden relative">
+                             <motion.div 
+                                className="absolute inset-y-0 left-0 bg-blue-500/20"
+                                initial={{ width: 0 }}
+                                animate={{ width: `${(h2/max)*100}%` }}
+                             />
+                             <motion.div 
+                                className="absolute inset-y-0 left-0 bg-emerald-500 h-[60%] my-auto shadow-[0_0_15px_rgba(16,185,129,0.5)] rounded-full"
+                                initial={{ width: 0 }}
+                                animate={{ width: `${(h1/max)*100}%` }}
+                             />
+                           </div>
+                        </div>
+                      );
+                    })}
+                   </div>
+
+                   <div className="mt-10 pt-6 border-t border-white/5 flex gap-8">
+                      <div className="flex items-center gap-3">
+                         <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{date1}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                         <div className="w-3 h-3 rounded-full bg-blue-500/30" />
+                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{date2}</span>
+                      </div>
+                   </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </motion.div>
   );
 }
 
-function InventoryView({ onUpdate }: { onUpdate: () => void }) {
-  const customItems = useMemo(() => storage.getCustomItems(), []);
-  const [items, setItems] = useState<Item[]>(() => {
-    return [...DEFAULT_ITEMS, ...customItems];
-  });
-
-  const handleUpdateStock = (id: string) => {
-    const newStock = prompt("Enter current stock level:");
-    if (newStock !== null && !isNaN(Number(newStock))) {
-      const updated = items.map(i => {
-        if (i.id === id) {
-          const item = { ...i, stock: Number(newStock), useStock: true };
-          // If custom item, save to storage
-          if (customItems.find(ci => ci.id === id)) {
-             const saved = storage.getCustomItems();
-             const newSaved = saved.map(s => s.id === id ? item : s);
-             localStorage.setItem('chai_bill_items', JSON.stringify(newSaved));
-          }
-          return item;
-        }
-        return i;
-      });
-      setItems(updated);
-      onUpdate();
-      if (auth.currentUser) {
-        firebaseService.syncInventory(updated).catch(console.error);
-      }
-    }
-  };
-
+function StatCard({ label, value, sub, icon, trend }: { label: string; value: string; sub: string; icon: React.ReactNode; trend?: number }) {
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="max-w-4xl space-y-12 pb-24"
-    >
-      <div>
-        <h1 className="text-4xl font-[1000] tracking-tighter text-[#0F172A] leading-none mb-2">INVENTORY</h1>
-        <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em]">Stock Maintenance & Alerts</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {items.map(item => (
-          <div key={item.id} className={`p-8 rounded-[32px] border-2 shadow-sm relative group transition-all ${item.useStock ? 'bg-white border-slate-100' : 'bg-slate-50 border-transparent opacity-60'}`}>
-            <div className={`p-3 rounded-2xl w-fit mb-6 ${item.color.split(' ')[0]}`}>
-               <AlertTriangle size={24} className={item.stock && item.stock < 10 ? 'text-rose-500' : 'text-slate-400'} />
-            </div>
-            
-            <p className="font-black text-xl text-[#0F172A] tracking-tight leading-none mb-1">{item.name}</p>
-            <p className="text-[20px] font-black text-slate-400 uppercase tracking-widest mb-6">{item.category}</p>
-            
-            <div className="flex items-end justify-between">
-              <div>
-                <p className="text-[20px] font-black text-slate-300 uppercase tracking-widest leading-none mb-2">Current Stock</p>
-                <p className={`text-4xl font-[1000] tracking-tighter ${item.useStock ? (item.stock && item.stock < 10 ? 'text-rose-600' : 'text-[#0F172A]') : 'text-slate-300'}`}>
-                  {item.useStock ? item.stock : '--'}
-                </p>
-              </div>
-              <button 
-                onClick={() => handleUpdateStock(item.id)}
-                className="bg-[#0F172A] text-white p-4 rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition-all"
-              >
-                <Plus size={20} />
-              </button>
-            </div>
-            
-            {!item.useStock && (
-              <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px] rounded-[32px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer" onClick={() => handleUpdateStock(item.id)}>
-                <p className="font-black text-[10px] uppercase bg-[#0F172A] text-white px-4 py-2 rounded-full tracking-widest">Enable Tracking</p>
-              </div>
-            )}
+    <div className="bg-white p-8 rounded-[36px] border border-slate-100 shadow-sm group hover:border-blue-100 transition-all">
+      <div className="flex justify-between items-start mb-6">
+        <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-blue-50 transition-colors">
+          {icon}
+        </div>
+        {trend !== undefined && (
+          <div className={`flex items-center gap-1 font-black text-[10px] px-3 py-1 rounded-full ${trend >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+            {trend >= 0 ? '+' : ''}{trend.toFixed(0)}%
           </div>
-        ))}
+        )}
       </div>
-    </motion.div>
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">{label}</p>
+      <p className="text-3xl font-[1000] text-[#0F172A] tracking-tighter mb-1">{value}</p>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{sub}</p>
+    </div>
+  );
+}
+
+function ComparisonCard({ label, val1, val2, prefix = "", isCurrency = false, round = false }: { 
+  label: string; 
+  val1: number; 
+  val2: number; 
+  prefix?: string; 
+  isCurrency?: boolean;
+  round?: boolean;
+}) {
+  const diff = val1 - val2;
+  const percentDiff = val2 !== 0 ? (diff / val2) * 100 : 0;
+  
+  return (
+    <div className="bg-white p-8 rounded-[32px] border-2 border-slate-100 shadow-sm relative overflow-hidden">
+      <div className={`absolute top-0 left-0 w-1 h-full ${diff >= 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+      <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest mb-6">{label}</p>
+      <div className="flex items-baseline gap-2 mb-4">
+        <span className="text-5xl font-[1000] text-[#0F172A] tracking-tighter">
+          {prefix}{round ? val1.toFixed(0) : val1}
+        </span>
+        <span className="text-slate-300 font-bold text-sm tracking-tighter">vs {prefix}{round ? val2.toFixed(0) : val2}</span>
+      </div>
+      <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black tracking-widest ${diff >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+        {diff >= 0 ? <TrendingUp size={14} /> : <AlertTriangle size={14} />}
+        {diff >= 0 ? '+' : ''}{diff.toFixed(round ? 0 : 0)} ({percentDiff.toFixed(1)}%)
+      </div>
+    </div>
   );
 }
 
@@ -917,7 +1167,7 @@ function SettingsView({ onAdd, onPriceUpdate }: { onAdd: () => void; onPriceUpda
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-4xl font-[1000] tracking-tighter text-[#0F172A] leading-none mb-2">SETTINGS</h1>
-          <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em]">Inventory & Data Management</p>
+          <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em]">Product & Data Management</p>
         </div>
       </div>
 
@@ -933,7 +1183,7 @@ function SettingsView({ onAdd, onPriceUpdate }: { onAdd: () => void; onPriceUpda
             </h3>
             <form onSubmit={handleAddItem} className="space-y-6">
               <div className="space-y-2">
-                <label className="text-[20px] font-black text-slate-400 uppercase tracking-widest ml-1">Name</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Name</label>
                 <input 
                   type="text" 
                   value={name}
@@ -944,7 +1194,7 @@ function SettingsView({ onAdd, onPriceUpdate }: { onAdd: () => void; onPriceUpda
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[20px] font-black text-slate-400 uppercase tracking-widest ml-1">Price (₹)</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Price (₹)</label>
                   <input 
                     type="number" 
                     value={price}
@@ -954,7 +1204,7 @@ function SettingsView({ onAdd, onPriceUpdate }: { onAdd: () => void; onPriceUpda
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[20px] font-black text-slate-400 uppercase tracking-widest ml-1">Category</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Category</label>
                   <select 
                     value={category}
                     onChange={(e) => setCategory(e.target.value as any)}

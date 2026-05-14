@@ -11,8 +11,6 @@ export interface Item {
   color: string;
   isSpecialCombo?: boolean;
   iconName?: string;
-  stock?: number;
-  useStock?: boolean;
 }
 
 export interface CartItem extends Item {
