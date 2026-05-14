@@ -18,6 +18,9 @@ body {
   @apply bg-[#F8FAFC] text-[#1E293B] antialiased;
 }
 
+.recharts-surface{
+  transform: translateX(-40px);
+}
 ::-webkit-scrollbar {
   width: 6px;
 }
