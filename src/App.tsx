@@ -42,6 +42,7 @@ export default function App() {
   const [priceOverrides, setPriceOverrides] = useState<Record<string, number>>(() => storage.getPriceOverrides());
   const [isCartExpanded, setIsCartExpanded] = useState(false);
   const [showOrderSuccess, setShowOrderSuccess] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Auth Listener
   useEffect(() => {
@@ -185,6 +186,7 @@ export default function App() {
     });
 
     setShowOrderSuccess(true);
+    setRefreshTrigger(prev => prev + 1);
     setTimeout(() => setShowOrderSuccess(false), 2000);
   };
 
@@ -220,6 +222,7 @@ export default function App() {
                 addNewBill={addNewBill}
                 allItemsByGroup={allItemsByGroup}
                 addToCart={addToCart}
+                refreshTrigger={refreshTrigger}
               />
             )}
 

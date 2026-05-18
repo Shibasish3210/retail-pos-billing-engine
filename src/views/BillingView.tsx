@@ -5,6 +5,7 @@ import { Item, DraftBill } from '../types';
 import { CATEGORY_COLORS } from '../constants';
 import { calculateItemTotal } from '../storage';
 import { IconComponent } from '../components/shared/IconComponent';
+import { OrderHistory } from '../components/layout/OrderHistory';
 
 interface BillingViewProps {
   bills: DraftBill[];
@@ -14,6 +15,7 @@ interface BillingViewProps {
   addNewBill: () => void;
   allItemsByGroup: Record<string, Item[]>;
   addToCart: (item: Item) => void;
+  refreshTrigger: number;
 }
 
 export function BillingView({
@@ -23,14 +25,15 @@ export function BillingView({
   deleteBill,
   addNewBill,
   allItemsByGroup,
-  addToCart
+  addToCart,
+  refreshTrigger
 }: BillingViewProps) {
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="p-4 md:p-8 flex flex-col gap-8"
+      className="p-4 md:p-8 flex flex-col gap-8 pb-32 md:pb-12"
     >
       {/* Bills Management */}
       <div className="flex gap-6 overflow-x-auto py-6 scrollbar-hide px-4 md:px-8 -mx-4 md:-mx-8">
@@ -107,6 +110,9 @@ export function BillingView({
           </div>
         ))}
       </div>
+
+      {/* History Section for Present Day */}
+      <OrderHistory refreshTrigger={refreshTrigger} />
     </motion.div>
   );
 }
