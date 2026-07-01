@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   TrendingUp, ShoppingCart, Calendar, BarChart3, Clock, 
-  ArrowUpRight, Coffee, ChevronRight, X, RefreshCcw, Landmark
+  Coffee, ChevronRight, X, RefreshCcw, Landmark,
+  CalendarDays, ChevronDown, Award
 } from 'lucide-react';
 import { 
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -13,13 +14,81 @@ import { DailySummary } from '../types';
 import { storage } from '../storage';
 import { firebaseService } from '../services/firebaseService';
 
+// Generates billing/shop cycles of "20th of month to 20th of next month" 
+// starting from April 20, 2026.
+function generateShopCycles(): Array<{ id: string; label: string; startDateStr: string; endDateStr: string }> {
+  const startYear = 2026;
+  const startMonth = 3; // April (0-indexed in JS Dates)
+  const startDay = 20;
+  
+  const cycles: Array<{ id: string; label: string; startDateStr: string; endDateStr: string }> = [];
+  const today = new Date();
+  
+  // We want to generate cycles up to 1 month in the future
+  const maxDate = new Date();
+  maxDate.setMonth(maxDate.getMonth() + 1);
+  
+  let currentStart = new Date(startYear, startMonth, startDay);
+  
+  while (currentStart < maxDate) {
+    const nextStart = new Date(currentStart);
+    nextStart.setMonth(nextStart.getMonth() + 1);
+    
+    const cycleEnd = new Date(nextStart);
+    cycleEnd.setDate(cycleEnd.getDate() - 1);
+    
+    const id = `cycle-${format(currentStart, 'yyyyMMdd')}`;
+    const label = `${format(currentStart, 'MMM d')} - ${format(cycleEnd, 'MMM d')}`;
+    
+    cycles.push({
+      id,
+      label,
+      startDateStr: format(currentStart, 'yyyy-MM-dd'),
+      endDateStr: format(cycleEnd, 'yyyy-MM-dd')
+    });
+    
+    currentStart = nextStart;
+  }
+  
+  return cycles.reverse(); // Show newest cycles first
+}
+
+type TimeframePreset = '1D' | '1W' | '1M' | '3M' | 'ALL' | 'CYCLE' | 'CUSTOM';
+
 export function InsightsView() {
   const [summaries, setSummaries] = useState<DailySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDayDetail, setSelectedDayDetail] = useState<DailySummary | null>(null);
 
+  // Timeframe and Range States
+  const [timeframe, setTimeframe] = useState<TimeframePreset>('1W');
+  const [selectedCycleId, setSelectedCycleId] = useState<string>('');
+  const [customStartDate, setCustomStartDate] = useState<string>(() => {
+    // Default start to 30 days ago
+    return format(subDays(new Date(), 30), 'yyyy-MM-dd');
+  });
+  const [customEndDate, setCustomEndDate] = useState<string>(() => {
+    return format(new Date(), 'yyyy-MM-dd');
+  });
+
+  // Crypto-style Hover/Scrubbing State
+  const [hoveredData, setHoveredData] = useState<{ label: string; sales: number; orders: number } | null>(null);
+
   const todayStr = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
   const currentMonthPrefix = useMemo(() => format(new Date(), 'yyyy-MM'), []);
+
+  const shopCycles = useMemo(() => generateShopCycles(), []);
+
+  // Sync default cycle id on load
+  useEffect(() => {
+    if (shopCycles.length > 0 && !selectedCycleId) {
+      setSelectedCycleId(shopCycles[0].id);
+    }
+  }, [shopCycles, selectedCycleId]);
+
+  const activeCycle = useMemo(() => {
+    return shopCycles.find(c => c.id === selectedCycleId) || shopCycles[0];
+  }, [shopCycles, selectedCycleId]);
 
   useEffect(() => {
     async function load() {
@@ -70,8 +139,7 @@ export function InsightsView() {
     load();
   }, []);
 
-  // Compute stats:
-  // Today's Stats
+  // Today's Stats card computation
   const todaySummary = useMemo(() => {
     return summaries.find(s => s.date === todayStr) || {
       date: todayStr,
@@ -82,7 +150,7 @@ export function InsightsView() {
     };
   }, [summaries, todayStr]);
 
-  // Current Month's Stats (e.g. 2026-06)
+  // Current Month's general KPI computation
   const monthlyStats = useMemo(() => {
     const matched = summaries.filter(s => s.date.startsWith(currentMonthPrefix));
     return {
@@ -91,7 +159,7 @@ export function InsightsView() {
     };
   }, [summaries, currentMonthPrefix]);
 
-  // All-time Stats
+  // All-time cumulative stats
   const allTimeStats = useMemo(() => {
     return {
       sales: summaries.reduce((acc, s) => acc + s.totalSales, 0),
@@ -99,7 +167,7 @@ export function InsightsView() {
     };
   }, [summaries]);
 
-  // Daily popular item today
+  // Daily popular items today
   const popularItemsToday = useMemo(() => {
     if (!todaySummary.itemCounts) return [];
     return Object.entries(todaySummary.itemCounts)
@@ -107,24 +175,93 @@ export function InsightsView() {
       .slice(0, 3);
   }, [todaySummary]);
 
-  // Chart data: Last 7 days trend
-  const trendChartData = useMemo(() => {
-    const last7Days = eachDayOfInterval({
-      start: subDays(new Date(), 6),
-      end: new Date()
+  // Generate continuous chart data for the selected range/preset
+  const chartData = useMemo(() => {
+    if (timeframe === '1D') {
+      // Hourly today
+      return Array.from({ length: 24 }, (_, hour) => {
+        const displayHour = format(new Date().setHours(hour, 0, 0, 0), 'hh:00 a');
+        return {
+          label: displayHour,
+          fullDate: `Today at ${displayHour}`,
+          sales: todaySummary.hourlySales[hour] || 0,
+          orders: (todaySummary.hourlySales[hour] || 0) > 0 ? 1 : 0 // approximate transaction count
+        };
+      });
+    }
+
+    let start: Date;
+    let end: Date = new Date();
+
+    if (timeframe === '1W') {
+      start = subDays(new Date(), 6);
+    } else if (timeframe === '1M') {
+      start = subDays(new Date(), 29);
+    } else if (timeframe === '3M') {
+      start = subDays(new Date(), 89);
+    } else if (timeframe === 'ALL') {
+      if (summaries.length > 0) {
+        const sortedDates = [...summaries].map(s => parseISO(s.date)).sort((a, b) => a.getTime() - b.getTime());
+        start = sortedDates[0];
+      } else {
+        start = parseISO('2026-04-20');
+      }
+    } else if (timeframe === 'CYCLE' && activeCycle) {
+      start = parseISO(activeCycle.startDateStr);
+      end = parseISO(activeCycle.endDateStr);
+    } else if (timeframe === 'CUSTOM') {
+      start = parseISO(customStartDate);
+      end = parseISO(customEndDate);
+    } else {
+      start = subDays(new Date(), 6);
+    }
+
+    try {
+      const intervalDays = eachDayOfInterval({ start, end });
+      return intervalDays.map(day => {
+        const dStr = format(day, 'yyyy-MM-dd');
+        const found = summaries.find(s => s.date === dStr);
+        return {
+          label: format(day, 'MMM dd'),
+          fullDate: format(day, 'EEEE, MMMM d, yyyy'),
+          sales: found ? found.totalSales : 0,
+          orders: found ? found.totalOrders : 0
+        };
+      });
+    } catch (e) {
+      console.error("Failed to generate date interval", e);
+      return [];
+    }
+  }, [timeframe, summaries, todaySummary, activeCycle, customStartDate, customEndDate]);
+
+  // Compute aggregated stats matching the selected/filtered interval
+  const filteredStats = useMemo(() => {
+    const totalSales = chartData.reduce((sum, item) => sum + item.sales, 0);
+    const totalOrders = chartData.reduce((sum, item) => sum + item.orders, 0);
+    const numDays = chartData.length || 1;
+    const dailyAverage = timeframe === '1D' ? totalSales : Math.round(totalSales / numDays);
+
+    let bestDaySales = 0;
+    let bestDayLabel = 'N/A';
+    chartData.forEach(item => {
+      if (item.sales > bestDaySales) {
+        bestDaySales = item.sales;
+        bestDayLabel = item.label;
+      }
     });
 
-    return last7Days.map(day => {
-      const dStr = format(day, 'yyyy-MM-dd');
-      const found = summaries.find(s => s.date === dStr);
-      return {
-        label: format(day, 'EEE'),
-        fullDate: dStr,
-        sales: found ? found.totalSales : 0,
-        orders: found ? found.totalOrders : 0
-      };
-    });
-  }, [summaries]);
+    return {
+      totalSales,
+      totalOrders,
+      dailyAverage,
+      bestDayLabel,
+      bestDaySales
+    };
+  }, [chartData, timeframe]);
+
+  // Live balance text updates based on mouse hover/scrubbing
+  const displayTotalSales = hoveredData ? hoveredData.sales : filteredStats.totalSales;
+  const displayLabel = hoveredData ? hoveredData.label : (timeframe === '1D' ? "Today's Aggregated Sales" : 'Period Total Sales');
 
   if (loading) {
     return (
@@ -141,7 +278,7 @@ export function InsightsView() {
       animate={{ opacity: 1 }}
       className="space-y-8 pb-24 max-w-[1240px] mx-auto px-1"
     >
-      {/* Dynamic Dashboard Header */}
+      {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-100 pb-6 mb-2">
         <div className="flex items-center gap-4">
           <div className="bg-[#0F172A] text-white p-3.5 rounded-2xl shadow-sm">
@@ -158,9 +295,9 @@ export function InsightsView() {
         </div>
       </div>
 
-      {/* Main KPI Row */}
+      {/* KPI Cards Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* KPI: Today's revenue */}
+        {/* KPI: Today */}
         <div className="bg-white p-8 rounded-[36px] border border-slate-100 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[160px] group transition-all hover:border-blue-100">
           <div>
             <div className="flex justify-between items-start mb-4">
@@ -179,7 +316,7 @@ export function InsightsView() {
           </p>
         </div>
 
-        {/* KPI: This Month's revenue */}
+        {/* KPI: Monthly */}
         <div className="bg-white p-8 rounded-[36px] border border-slate-100 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[160px] group transition-all hover:border-blue-100">
           <div>
             <div className="flex justify-between items-start mb-4">
@@ -198,7 +335,7 @@ export function InsightsView() {
           </p>
         </div>
 
-        {/* KPI: All-time Stats */}
+        {/* KPI: All-time */}
         <div className="bg-white p-8 rounded-[36px] border border-slate-100 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[160px] group transition-all hover:border-blue-100">
           <div>
             <div className="flex justify-between items-start mb-4">
@@ -218,64 +355,220 @@ export function InsightsView() {
         </div>
       </div>
 
-      {/* Grid: 7-Day Trend and Hot Sellers */}
+      {/* Interactive Chart & Secondary Stats Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Trend Area Chart (spans 2 cols on lg) */}
-        <div className="lg:col-span-2 bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
+        
+        {/* Modern Crypto-style Chart Panel (spans 2 cols) */}
+        <div className="lg:col-span-2 bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm space-y-6">
+          
+          {/* Header & Preset Switchers */}
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
             <div>
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] mb-1 block">Revenue Trend</span>
-              <h3 className="text-xl font-[1000] text-[#0F172A] tracking-tight">Last 7 Days Sales Velocity</h3>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] mb-1 block">Live Scrubbing Enabled</span>
+              <h3 className="text-xl font-[1000] text-[#0F172A] tracking-tight">Sales Revenue Velocity</h3>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 bg-blue-500 rounded-full" />
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Daily Revenue</span>
+
+            {/* Premium Preset Pill Bar */}
+            <div className="flex flex-wrap items-center gap-1.5 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/40">
+              {(['1D', '1W', '1M', '3M', 'ALL', 'CYCLE', 'CUSTOM'] as const).map((t) => {
+                const labelMap: Record<string, string> = {
+                  '1D': '1D',
+                  '1W': '1W',
+                  '1M': '1M',
+                  '3M': '3M',
+                  'ALL': 'ALL',
+                  'CYCLE': 'Shop Month',
+                  'CUSTOM': 'Custom Range'
+                };
+                const isActive = timeframe === t;
+                return (
+                  <button
+                    key={t}
+                    onClick={() => setTimeframe(t)}
+                    className={`px-3 py-1.5 rounded-xl font-black text-[11px] uppercase tracking-wider transition-all duration-200 ${
+                      isActive 
+                        ? 'bg-[#0F172A] text-white shadow-sm' 
+                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/60'
+                    }`}
+                  >
+                    {labelMap[t]}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <div className="h-[250px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trendChartData}>
-                <defs>
-                  <linearGradient id="chartSalesGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.12}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis 
-                  dataKey="label" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 10, fontWeight: 800, fill: '#94a3b8' }} 
-                />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 10, fontWeight: 800, fill: '#94a3b8' }}
-                  tickFormatter={(val) => `₹${val}`}
-                />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 12px 24px -4px rgb(0 0 0 / 0.08)', padding: '14px' }}
-                  itemStyle={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase' }}
-                  labelStyle={{ fontSize: '11px', fontWeight: 900, color: '#94a3b8', marginBottom: '4px' }}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="sales" 
-                  name="Sales (₹)"
-                  stroke="#3b82f6" 
-                  strokeWidth={3} 
-                  fillOpacity={1} 
-                  fill="url(#chartSalesGrad)" 
-                  animationDuration={1000}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+          {/* Conditional Cycle Selector Drawer */}
+          <AnimatePresence>
+            {timeframe === 'CYCLE' && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="bg-slate-50 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 border border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <CalendarDays size={16} className="text-slate-400" />
+                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Choose accounting period:</span>
+                  </div>
+                  <div className="relative">
+                    <select
+                      value={selectedCycleId}
+                      onChange={(e) => setSelectedCycleId(e.target.value)}
+                      className="appearance-none bg-white border border-slate-200 px-4 py-2 pr-10 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm cursor-pointer"
+                    >
+                      {shopCycles.map((cycle) => (
+                        <option key={cycle.id} value={cycle.id}>
+                          {cycle.label} (Cycles monthly on the 20th)
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Conditional Custom Range Drawer */}
+            {timeframe === 'CUSTOM' && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="bg-slate-50 p-4 rounded-2xl flex flex-wrap items-center gap-6 border border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-wider">From:</span>
+                    <input 
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="bg-white border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-wider">To:</span>
+                    <input 
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="bg-white border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm"
+                    />
+                  </div>
+                  <p className="text-[10px] font-bold text-slate-400">
+                    Track custom marketing cycles or exact business seasons
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Dynamic "Scrubbing" Metrics Dashboard */}
+          <div className="bg-slate-50/55 p-6 rounded-3xl border border-slate-100 flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 block">
+                {displayLabel}
+              </span>
+              <div className="flex items-baseline gap-2">
+                <h2 className="text-4xl font-[1000] text-[#0F172A] tracking-tighter leading-none">
+                  ₹{displayTotalSales}
+                </h2>
+                {hoveredData && (
+                  <span className="text-[9px] font-black text-blue-500 bg-blue-50 px-2 py-0.5 rounded-md uppercase tracking-wider animate-pulse">
+                    Live Point
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-6 text-left md:text-right">
+              <div>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Bills</span>
+                <p className="text-sm font-black text-slate-700">
+                  {hoveredData ? (hoveredData.orders || '0') : filteredStats.totalOrders}
+                </p>
+              </div>
+              <div>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Daily Avg</span>
+                <p className="text-sm font-black text-slate-700">
+                  ₹{filteredStats.dailyAverage}
+                </p>
+              </div>
+              <div>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1 text-emerald-600">Peak Sales</span>
+                <p className="text-sm font-black text-emerald-600">
+                  {filteredStats.bestDaySales > 0 ? `₹${filteredStats.bestDaySales}` : 'N/A'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Area Chart Stage */}
+          <div className="h-[250px] w-full pt-4">
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart 
+                  data={chartData}
+                  onMouseMove={(e: any) => {
+                    if (e && e.activePayload && e.activePayload[0]) {
+                      const payload = e.activePayload[0].payload;
+                      setHoveredData({
+                        label: payload.fullDate || payload.label,
+                        sales: payload.sales,
+                        orders: payload.orders
+                      });
+                    }
+                  }}
+                  onMouseLeave={() => setHoveredData(null)}
+                >
+                  <defs>
+                    <linearGradient id="cryptoSalesGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15}/>
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.00}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f8fafc" />
+                  <XAxis 
+                    dataKey="label" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 9, fontWeight: 900, fill: '#94a3b8' }} 
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 9, fontWeight: 900, fill: '#94a3b8' }}
+                    tickFormatter={(val) => `₹${val}`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.05)', padding: '12px' }}
+                    itemStyle={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}
+                    labelStyle={{ fontSize: '10px', fontWeight: 900, color: '#94a3b8', marginBottom: '2px' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="sales" 
+                    name="Revenue (₹)"
+                    stroke="#3b82f6" 
+                    strokeWidth={3} 
+                    fillOpacity={1} 
+                    fill="url(#cryptoSalesGrad)" 
+                    animationDuration={600}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-2">
+                <Calendar size={32} strokeWidth={1.5} />
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Empty Chart Range</span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Hot Sellers Card */}
+        {/* Product Mix Card */}
         <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-start mb-6">
@@ -325,7 +618,7 @@ export function InsightsView() {
         </div>
       </div>
 
-      {/* Main Historical Daily Record at the Bottom */}
+      {/* Main Historical Daily Record at the Bottom (Preserved cleanly) */}
       <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm">
         <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-50">
           <div>
@@ -397,7 +690,7 @@ export function InsightsView() {
         )}
       </div>
 
-      {/* Interactive Detail Modal to Cross-verify specific previous days */}
+      {/* Interactive Detail Modal (Preserved cleanly) */}
       <AnimatePresence>
         {selectedDayDetail && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
@@ -478,7 +771,7 @@ export function InsightsView() {
                   </div>
                 </div>
 
-                {/* Hourly breakdown list (Only showing hours with actual sales) */}
+                {/* Hourly breakdown list */}
                 <div>
                   <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] mb-4 border-b border-slate-50 pb-2">
                     Hourly Sales Breakdown
